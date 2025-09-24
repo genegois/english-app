@@ -1,7 +1,7 @@
-## Usage
-
-1. Tambahin profiles.clj di root dulu
-2. Masuk ke folder lewat terminal (npm), terus:
+## So, How to use this??
+1. Download the code, of course.
+2. Tambahin profiles.clj di root file (di dalem english-app) dulu 
+3. Masuk ke file english-app lewat terminal (npm), terus:
    - npm install shadow-cljs --save-dev
    - npm install react react-dom
    - npx shadow-cljs watch app
@@ -9,7 +9,7 @@
 
 # Next to-do
 [mini] 
-- find bug or analyze the webapp and fixing some-things (misal user bisa brute-force generate)
+- fixing some-things (misal user bisa brute-force [generate], dll)
 
 [big]
 - add speech and listening practice 
@@ -29,6 +29,7 @@ Public License, v. 2.0 are satisfied: GNU General Public License as published by
 the Free Software Foundation, either version 2 of the License, or (at your
 option) any later version, with the GNU Classpath Exception which is available
 at https://www.gnu.org/software/classpath/license.html.
+
 
 
 
