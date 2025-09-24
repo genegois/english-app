@@ -48,7 +48,7 @@
   (let [[p & params] (parse-hash)]
     (if (and (nil? @(rf/subscribe [:user]))
              (= p :home))
-      (rf/dispatch [:set-page :login])
+      (rf/dispatch [:set-page :register])
       (rf/dispatch (vec (concat [:set-page p] params)))))
 
   ;; listen browser back/forward
@@ -56,6 +56,7 @@
 
   ;; render app
   (.render root (r/as-element [views/app-root])))
+
 
 
 
