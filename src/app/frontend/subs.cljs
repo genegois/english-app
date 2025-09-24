@@ -1,0 +1,15 @@
+(ns app.frontend.subs
+  (:require [re-frame.core :as rf]))
+
+(rf/reg-sub :user (fn [db _] (:user db)))
+(rf/reg-sub :page (fn [db _] (:page db)))
+(rf/reg-sub :materials (fn [db _] (:materials db)))
+(rf/reg-sub :current-material (fn [db _] (:current-material db)))
+(rf/reg-sub :assessment (fn [db _] (:assessment db)))
+(rf/reg-sub :prosets (fn [db _] (:prosets db)))
+(rf/reg-sub :current-proset (fn [db _] (:current-proset db)))
+(rf/reg-sub :all-questions (fn [db _] (:all-questions db)))
+(rf/reg-sub :user-all-questions (fn [db _] (:user-all-questions db)))
+(rf/reg-sub :last-proset-result (fn [db _] (:last-proset-result db)))
+(rf/reg-sub :assessment-started? (fn [db _] (:assessment-started? db)))
+(rf/reg-sub :page-params (fn [db _] (:page-params db)))
