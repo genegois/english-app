@@ -12,23 +12,6 @@
            :value (or @val-atom "")
            :placeholder placeholder
            :on-change #(reset! val-atom (.. % -target -value))}])
-
-(defn shuffle-problems [problems]
-  (->> problems
-       shuffle
-       (map (fn [q]
-              (let [choices (:choices q)
-                    pairs   (shuffle (map-indexed vector choices))
-                    idx-map (into {} (map-indexed (fn [i [orig-idx choice]] [i orig-idx]) pairs))
-                    new-choices (mapv second pairs)
-                    new-answer (first (keep-indexed #(when (= (second %2) (get choices (:answer-idx q))) %1) pairs))]
-                (assoc q
-                       :choices new-choices
-                       :answer-idx new-answer
-                       :idx-map idx-map))))
-       vec))
-
-
 ;; -----------------------------------------------------------------------------
 ;; AUTH
 ;; -----------------------------------------------------------------------------
@@ -245,35 +228,34 @@
 
 (defn assessment-test-page []
   (let [a @(rf/subscribe [:assessment])
-        answers (r/atom {})
-        shuffled (r/atom nil)]
+        answers (r/atom {})]
     (fn []
       [:div.container
        [:h2.page-title "Assessment Test"]
-       (if (seq (:questions a))
-         (let [qs (or @shuffled (reset! shuffled (shuffle-problems (:questions a))))]
-           [:div
-            [:ol
-             (for [[idx q] (map-indexed vector qs)]
-               ^{:key (str "assess-q-" idx)}
-               [:li.question
-                [:div.problem (:problem q)]
-                [:ul.options
-                 (for [[i opt] (map-indexed vector (:choices q))]
-                   ^{:key (str "assess-opt-" idx "-" i)}
-                   [:li.option
-                    [:label
-                     [:input {:type "radio"
-                              :name (str "assess-q" idx)
-                              :value i
-                              :on-change #(swap! answers assoc idx i)}]
-                     [:span (str (char (+ 65 i)) ". " opt)]]])]])]
-            [:button.btn.btn-primary
-             {:on-click #(rf/dispatch
-                          [:submit-assessment
-                           (mapv (fn [[i sel]] {:selected sel})
-                                 (sort-by key @answers))])}
-             "Submit Jawaban"]])
+       (if (seq (:questions a)) 
+         [:div
+          [:ol
+           (for [[idx q] (map-indexed vector (:questions a))]
+             ^{:key (str "assess-q-" idx)}
+             [:li.question
+              [:div.problem (:problem q)]
+              [:ul.options
+               (for [[i opt] (map-indexed vector (:choices q))]
+                 ^{:key (str "assess-opt-" idx "-" i)}
+                 [:li.option
+                  [:label
+                   [:input {:type "radio"
+                            :name (str "assess-q" idx)
+                            :value i
+                            :on-change #(swap! answers assoc idx i)}]
+                   [:span (str (char (+ 65 i)) ". " opt)]]])]])]
+          [:button.btn.btn-primary
+           {:on-click #(rf/dispatch
+                        [:submit-assessment
+                         (mapv (fn [[i sel]] {:selected sel})
+                               (sort-by key @answers))])}
+           "Submit Jawaban"]]
+
          [:p "Belum ada assessment gan, generate dulu!"])])))
 
 
@@ -386,143 +368,103 @@
 
 (defn practice-proset-page []
   (let [p @(rf/subscribe [:current-proset])
-        answers (r/atom {})
-        shuffled (r/atom nil)]
+        answers (r/atom {})]
     [:div.container
      [:h2 (str (or (:bank-code p) (:topic p)))]
-     (if (seq (:problems p))
-       (let [qs (or @shuffled (reset! shuffled (shuffle-problems (:problems p))))]
-         [:div
-          [:ol
-           (for [[idx q] (map-indexed vector qs)]
-             ^{:key (str "proset-q-" idx)}
-             [:li.question
-              [:div.problem (:problem q)]
-              [:ul.options
-               (for [[i choice] (map-indexed vector (:choices q))]
-                 ^{:key (str "proset-opt-" idx "-" i)}
-                 [:li.option
-                  [:label
-                   [:input {:type "radio"
-                            :name (str "proset-q" idx)
-                            :value i
-                            :on-change #(swap! answers assoc idx i)}]
-                   [:span (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
-          [:div {:style {:margin-top "1em"}}
-           [:button.btn.btn-success
-            {:on-click #(rf/dispatch
-                         [:submit-proset
-                          (:_id p)
-                          (mapv (fn [[i sel]] {:selected sel})
-                                (sort-by key @answers))])}
-            "Submit Jawaban"]]])
+     (if (seq (:problems p)) 
+       [:div
+        [:ol
+         (for [[idx q] (map-indexed vector (:problems p))]
+           ^{:key (str "proset-q-" idx)}
+           [:li.question
+            [:div.problem (:problem q)]
+            [:ul.options
+             (for [[i choice] (map-indexed vector (:choices q))]
+               ^{:key (str "proset-opt-" idx "-" i)}
+               [:li.option
+                [:label
+                 [:input {:type "radio"
+                          :name (str "proset-q" idx)
+                          :value i
+                          :on-change #(swap! answers assoc idx i)}]
+                 [:span (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
+        [:div {:style {:margin-top "1em"}}
+         [:button.btn.btn-success
+          {:on-click #(rf/dispatch
+                       [:submit-proset
+                        (:_id p)
+                        (mapv (fn [[i sel]] {:selected sel})
+                              (sort-by key @answers))])}
+          "Submit Jawaban"]]]
+
        [:div.panel
         [:p "Soal kosong bro, coba generate dulu."]])]))
 
-(defn practice-test-page []
-  (let [ps @(rf/subscribe [:prosets])
-        answers (r/atom {})
-        shuffled (r/atom nil)]
-    [:div.container
-     [:h2.page-title "Practice Test"]
-     (if (seq ps)
-       (let [first-proset (first ps)
-             qs (or @shuffled (reset! shuffled (shuffle-problems (:problems first-proset))))
-             proset-id (:_id first-proset)]
-         [:div
-          [:ol
-           (for [[idx p] (map-indexed vector qs)]
-             ^{:key (str "ptest-q-" idx)}
-             [:li.question
-              [:div.problem (:problem p)]
-              [:ul.options
-               (for [[i c] (map-indexed vector (:choices p))]
-                 ^{:key (str "ptest-opt-" idx "-" i)}
-                 [:li.option
-                  [:label
-                   [:input {:type "radio"
-                            :name (str "ptest-q" idx)
-                            :value i
-                            :on-change #(swap! answers assoc idx i)}]
-                   [:span {:style {:margin-left "0.6em"}}
-                    (str (char (+ 65 i)) ". " (or (:text c) c))]]])]])]
-          [:div {:style {:margin-top "1em"}}
-           [:button.btn.btn-primary
-            {:on-click #(rf/dispatch
-                         [:submit-proset
-                          proset-id
-                          (mapv (fn [[i sel]] {:selected sel})
-                                (sort-by key @answers))])}
-            "Submit Jawaban"]]])
-       [:p "Belum ada practice, generate dulu di menu Practice!"])]))
-
 (defn practice-all-page [material-id]
   (let [answers (r/atom {})
-        all @(rf/subscribe [:all-questions])
-        shuffled (r/atom nil)]
+        all @(rf/subscribe [:all-questions])]
     [:div.container
      [:h2.page-title "Tes Semua Soal Materi Ini"]
      (if (seq (:problems all))
-       (let [qs (or @shuffled (reset! shuffled (shuffle-problems (:problems all))))]
-         [:div
-          [:ol
-           (for [[idx q] (map-indexed vector qs)]
-             ^{:key (str "all-q-" idx)}
-             [:li.question
-              [:div.problem (:problem q)]
-              [:ul.options
-               (for [[i choice] (map-indexed vector (:choices q))]
-                 ^{:key (str "all-opt-" idx "-" i)}
-                 [:li.option
-                  [:label
-                   [:input {:type "radio"
-                            :name (str "all-q" idx)
-                            :value i
-                            :on-change #(swap! answers assoc idx i)}]
-                   [:span {:style {:margin-left "0.6em"}}
-                    (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
-          [:div {:style {:margin-top "1em"}}
-           [:button.btn.btn-success
-            {:on-click #(rf/dispatch
-                         [:submit-all-questions
-                          material-id
-                          (mapv (fn [[i sel]] {:selected sel})
-                                (sort-by key @answers))])}
-            "Submit Semua Jawaban"]]])
+       [:div
+        [:ol
+         (for [[idx q] (map-indexed vector (:problems all))]
+           ^{:key (str "all-q-" idx)}
+           [:li.question
+            [:div.problem (:problem q)]
+            [:ul.options
+             (for [[i choice] (map-indexed vector (:choices q))]
+               ^{:key (str "all-opt-" idx "-" i)}
+               [:li.option
+                [:label
+                 [:input {:type "radio"
+                          :name (str "all-q" idx)
+                          :value i
+                          :on-change #(swap! answers assoc idx i)}]
+                 [:span {:style {:margin-left "0.6em"}}
+                  (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
+        [:div {:style {:margin-top "1em"}}
+         [:button.btn.btn-success
+          {:on-click #(rf/dispatch
+                       [:submit-all-questions
+                        material-id
+                        (mapv (fn [[i sel]] {:selected sel})
+                              (sort-by key @answers))])}
+          "Submit Semua Jawaban"]]]
+
        [:p "Belum ada soal di materi ini."])]))
 
 (defn practice-all-user-page []
   (let [answers (r/atom {})
-        all @(rf/subscribe [:user-all-questions])
-        shuffled (r/atom nil)]
+        all @(rf/subscribe [:user-all-questions])]
     [:div.container
      [:h2.page-title "Tes Semua Soal dari Semua Materi"]
-     (if (seq (:problems all))
-       (let [qs (or @shuffled (reset! shuffled (shuffle-problems (:problems all))))]
-         [:div
-          [:ol
-           (for [[idx q] (map-indexed vector qs)]
-             ^{:key (str "all-user-q-" idx)}
-             [:li.question
-              [:div.problem (:problem q)]
-              [:ul.options
-               (for [[i choice] (map-indexed vector (:choices q))]
-                 ^{:key (str "all-user-opt-" idx "-" i)}
-                 [:li.option
-                  [:label
-                   [:input {:type "radio"
-                            :name (str "all-user-q" idx)
-                            :value i
-                            :on-change #(swap! answers assoc idx i)}]
-                   [:span {:style {:margin-left "0.6em"}}
-                    (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
-          [:div {:style {:margin-top "1em"}}
-           [:button.btn.btn-accent
-            {:on-click #(rf/dispatch
-                         [:submit-user-all-questions
-                          (mapv (fn [[i sel]] {:selected sel})
-                                (sort-by key @answers))])}
-            "Submit Semua Jawaban"]]])
+     (if (seq (:problems all)) 
+       [:div
+        [:ol
+         (for [[idx q] (map-indexed vector (:problems all))]
+           ^{:key (str "all-user-q-" idx)}
+           [:li.question
+            [:div.problem (:problem q)]
+            [:ul.options
+             (for [[i choice] (map-indexed vector (:choices q))]
+               ^{:key (str "all-user-opt-" idx "-" i)}
+               [:li.option
+                [:label
+                 [:input {:type "radio"
+                          :name (str "all-user-q" idx)
+                          :value i
+                          :on-change #(swap! answers assoc idx i)}]
+                 [:span {:style {:margin-left "0.6em"}}
+                  (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
+        [:div {:style {:margin-top "1em"}}
+         [:button.btn.btn-accent
+          {:on-click #(rf/dispatch
+                       [:submit-user-all-questions
+                        (mapv (fn [[i sel]] {:selected sel})
+                              (sort-by key @answers))])}
+          "Submit Semua Jawaban"]]]
+
        [:p "Belum ada soal di semua materi lo."])]))
 
 (defn practice-result-page []
@@ -585,7 +527,6 @@
        :practice   [practice-page (first params)]
        :bank-soal [bank-soal-page]
        :practice-proset [practice-proset-page]
-       :practice-test [practice-test-page]
        :practice-result [practice-result-page]
        :practice-all [practice-all-page (first params)]
        :practice-all-user [practice-all-user-page]
