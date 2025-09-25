@@ -52,7 +52,7 @@
    [:div.btn-group
     [:button.btn {:on-click #(set! (.-hash js/location) "#generate")} "Generate manual"]
     [:button.btn {:on-click #(set! (.-hash js/location) "#materials")} "List materi"]
-    [:button.btn {:on-click #(set! (.-hash js/location) "#assessment")} "Tes skill lo"]]])
+    [:button.btn {:on-click #(set! (.-hash js/location) "#assessment")} "Assessment"]]])
 
 ;; -----------------------------------------------------------------------------
 ;; MATERIALS
@@ -211,7 +211,7 @@
   [:div.container
    [:h2.page-title "Assessment"]
    [:p.desc
-    "Assessment ini adalah tes menyeluruh untuk ngecek kemampuan lo "
+    "Assessment ini tuh tes menyeluruh buat ngecek kemampuan lo "
     "dalam grammar, vocabulary, dan reading. Anggep aja ini ‘ultimate test’ "
     "buat tau level lo sekarang."]
 
@@ -534,6 +534,3 @@
        :assessment-test [assessment-test-page]
        :assessment-result [assessment-result-page]
        [:div "Halaman tidak ditemukan."])]))
-
-
-
