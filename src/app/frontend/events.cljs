@@ -80,7 +80,7 @@
    (let [user (if (map? resp) resp (js->clj resp :keywordize-keys true))
          id   (or (:id user) (:_id user) (:email user))
          user (if id (assoc user :id id) user)]
-     (js/alert "Register sukses! Silakan login.")
+     (js/alert (str "Register sukses! Welkomm " (or (:username user) (:email user)) "!"))
      (if (:id user)
        {:db (assoc db :user user :page :home)
         :dispatch [:fetch-materials]}
@@ -103,7 +103,7 @@
    (let [user (if (map? resp) resp (js->clj resp :keywordize-keys true))
          user (assoc user :id (or (:id user) (:_id user) (:email user)))]
      (js/localStorage.setItem "user" (js/JSON.stringify (clj->js user)))
-     (js/alert (str "Login sukses: " (or (:username user) (:email user))))
+     (js/alert (str "Login sukses, alo " (or (:username user) (:email user))) "!")
      {:db (assoc db :user user :page :home)
       :dispatch [:fetch-materials]})))
 
@@ -161,7 +161,7 @@
 (rf/reg-event-fx
  :generate-material-success
  (fn [_ [_ _resp]]
-   (js/alert "Materi berhasil digenerate & disimpan!")
+   (js/alert "Materi berhasil di-generate & disimpan!")
    {:dispatch [:fetch-materials]}))
 
 ;; ------------------------------------------------------------------
@@ -211,7 +211,7 @@
 (rf/reg-event-fx
  :generate-prosets-success
  (fn [_ [_ resp]]
-   (js/alert "Practice berhasil digenerate!")
+   (js/alert "Practice berhasil di-generate!")
    (let [mid (or (:material-id resp)
                  (get resp :material-id)
                  (get resp "material-id"))]
@@ -252,7 +252,7 @@
 (rf/reg-event-db
  :submit-proset-success
  (fn [db [_ resp]]
-   (js/alert (str "Practice selesai! Skor: "
+   (js/alert (str "Practice selesai! Skor lo: "
                   (get-in resp [:score :correct] 0) "/"
                   (get-in resp [:score :total] 0)))
    (-> db
