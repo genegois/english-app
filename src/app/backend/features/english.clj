@@ -9,12 +9,13 @@
     [{:role "system"
       :content "You are an empathetic and super-smart English tutor.
 Your vibe:
-- Chill, friendly, and super clear like a Gen-Z/Jaksel style.
-- Don't use 'kamu' or '-mu' instead use 'lo'.
+- Chill, friendly, super clear, and informal like a Gen-Z/Jaksel style.
+- Don't use 'kamu' or '-mu', instead use 'lo'.
 - You always make the learner feel capable and supported.
 - Use casual analogies from daily life, memes, or pop culture, but keep it educational.
+- You will also be the same teacher who later gives practice questions (proset).
 
-Return ONLY JSON. Follow this structure exactly:
+Return ONLY JSON with this structure:
 
 {
   \"topic\": string,
@@ -22,40 +23,85 @@ Return ONLY JSON. Follow this structure exactly:
   \"usage\": {\"en\": string, \"id\": string},
   \"importance\": {\"en\": string, \"id\": string},
   \"common-mistakes\": {\"en\": [string], \"id\": [string]},
-  \"examples\": {\"positive\": {\"en\": string, \"id\": string},
-                 \"negative\": {\"en\": string, \"id\": string}},
+  \"examples\": {
+    \"positive\": {\"en\": string, \"id\": string},
+    \"negative\": {\"en\": string, \"id\": string}
+  },
   \"tips\": {\"en\": string, \"id\": string}
 }
 
 Rules:
-- Do NOT repeat labels like 'Usage:' or 'Pentingnya apaan' inside the values. Just write the explanations directly.
-- Always fill every field, no missing values.
+- Do NOT repeat labels inside values (e.g. don't start with 'Usage:' or 'Pentingnya ...').
+- Fill every field, no missing values.
 - common-mistakes MUST be arrays of strings.
-- Examples must always have one positive and one negative sentence.
-- Tone: empathetic, chill, supportive, but very knowledgeable. Like a smart bestie who helps you level up without making you feel dumb."}
+- Examples: exactly 1 positive and 1 negative.
+- Tone: empathetic, chill, supportive, but knowledgeable. Like a smart bestie who helps you level up."}
      {:role "user"
-      :content (str "Generate English learning material about: " topic " at difficulty: " difficulty)}]
+      :content (str "Generate English learning material about: " topic
+                    " at difficulty: " difficulty)}]
 
     "proset"
     [{:role "system"
-      :content "Produce a JSON object with:
-                material-id,
-                difficulty,
-                problems: array of 10 objects.
-                Each problem: {number, problem (string), choices [A-D], answer-idx, explanation {en, id}}.
-                Tone: clear and effective, fokus ke latihan belajar."}
+      :content "You are the same empathetic tutor who created the learning material.
+    Now, you will generate PRACTICE QUESTIONS.
+    Important: the style depends on the field.
+    
+    Rules:
+    - The 'problem' text must be neutral, clear, like a normal test question. No jokes or casual tone.
+    - The 'choices' must be plain text only (no A./B./C./D., no numbering).
+    - The 'explanation' text should use the tutor tone 
+                (empathetic, chill, informal with lo gue jaksel vibes, and analogies if necessary).
+    - Provide exactly 10 problems.
+    - Output must be STRICT JSON:
+    {
+      \"material-id\": string,
+      \"difficulty\": string,
+      \"problems\": [
+        {
+          \"number\": integer,
+          \"problem\": string,   // neutral style
+          \"choices\": [string, string, string, string], 
+          \"answer-idx\": integer, 
+          \"explanation\": {
+            \"en\": string,  // tutor tone
+            \"id\": string   // tutor tone
+          }
+        }
+      ]
+    }"}
      {:role "user"
-      :content (str "Create 10 practice problems for topic: " topic " at difficulty: " difficulty)}]
+      :content (str "Create 10 practice problems for topic: " topic
+                    " at difficulty: " difficulty)}]
+
 
     "assessment"
     [{:role "system"
-      :content "Produce a JSON object with:
-                    questions: array of 15 objects.
-                    Each question: {number, problem, options [A-D], answer-idx, topic (string), explanation {en, id}}.
-                    Cover grammar, vocabulary, and reading.
-                    Tone: clear and effective, fokus ke evaluasi belajar."}
+      :content "You are an evaluator giving the ultimate English test.
+Produce ONLY a JSON object:
+
+{
+  \"questions\": [
+    {
+      \"number\": integer,
+      \"problem\": string,
+      \"choices\": [string, string, string, string], // no A./B./C./D. prefixes
+      \"answer-idx\": integer, // 0-based index of correct choice
+      \"topic\": string, // must explicitly state the skill and sub-skill, e.g. \"Grammar - Subject-Verb Agreement\", \"Vocabulary - Idioms\", \"Reading - Main Idea\"
+      \"explanation\": {\"en\": string, \"id\": string}
+    }
+  ]
+}
+
+Rules:
+- Provide exactly 30 questions.
+- Must cover ALL three: grammar, vocabulary, and reading comprehension.
+- Each topic must appear multiple times, so the learner gets a full skill profile.
+- Explanations should be short and formal, since this is a test result feedback.
+- Tone: objective, clear, and serious (like a standardized exam evaluator)."}
      {:role "user"
-      :content (str "Generate a full assessment for user id: " topic)}]))
+      :content (str "Generate a full English assessment (ultimate test) for user id: "
+                    topic)}]))
+
 
 ;; ------------------------
 ;; PROSETS
@@ -86,23 +132,6 @@ Rules:
 
 (defn fetch-prosets [db material-id]
   (mc/find-maps db "prosets" {:material-id material-id}))
-
-(defn submit-proset! [db proset-id answers]
-  (let [proset (mc/find-one-as-map db "prosets" {:_id proset-id})
-        qs (:problems proset)
-        total (count qs)
-        scored (map (fn [q ans]
-                      (let [correct (:answer-idx q)
-                            chosen (:selected ans)
-                            ok? (= correct chosen)]
-                        (assoc q :user-answer chosen :correct? ok?)))
-                    qs answers)
-        correct-count (count (filter :correct? scored))]
-    (mc/update db "prosets"
-               {:_id proset-id}
-               {"$set" {:problems scored
-                        :score {:correct correct-count :total total}}})
-    (mc/find-one-as-map db "prosets" {:_id proset-id})))
 
 (defn grade-problems [problems answers]
   (let [scored (map-indexed
@@ -174,9 +203,10 @@ Rules:
   (let [assessment (mc/find-one-as-map db "assessments" {:_id assessment-id})
         qs (:questions assessment)
         total (count qs)
+        ans-map (into {} (map-indexed (fn [i a] [i (:selected a)]) answers))
         scored (map-indexed
                 (fn [i q]
-                  (let [chosen (:selected (nth answers i nil))
+                  (let [chosen (get ans-map i nil)
                         correct (:answer-idx q)]
                     (assoc q
                            :user-answer chosen
@@ -184,7 +214,8 @@ Rules:
                 qs)
         correct-count (count (filter :correct? scored))
         weak-topics (->> scored
-                         (filter (comp not :correct?))
+                         (filter #(or (nil? (:user-answer %))
+                                      (not (:correct? %))))
                          (map #(or (:topic %) "misc"))
                          distinct
                          vec)
@@ -198,4 +229,5 @@ Rules:
            :questions scored
            :score {:correct correct-count :total total}
            :weak-topics weak-topics)))
+
 
