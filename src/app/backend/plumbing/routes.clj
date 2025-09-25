@@ -22,11 +22,12 @@
                      existing (mc/find-one-as-map (:db db) "users" {:email email})]
                  (if existing
                    {:status 400 :body {:status "error" :message "Email udah kedaftar gan"}}
-                   (do (mc/insert-and-return (:db db) "users"
-                                             {:_id (u/uuid)
-                                              :email email
-                                              :username username})
-                       {:status 200 :body {:email email :username username}}))))}]
+                   (let [new-user {:_id (u/uuid)
+                                   :email email
+                                   :username username}]
+                     (mc/insert-and-return (:db db) "users" new-user)
+                     {:status 200 :body new-user})
+)))}]
      ["/login"
       {:post (fn [req]
                (let [{:keys [email]} (:body req)
@@ -96,17 +97,6 @@
                  all-problems (mapcat :problems prosets)
                  result (english/grade-problems all-problems answers)]
              {:status 200 :body result}))}]
-
-     ;; fetch last proset by user
-     ["/user/:user-id/last"
-      {:get (fn [req]
-              (let [uid (get-in req [:path-params :user-id])
-                    p (first (mc/find-maps (:db db) "prosets"
-                                           {:user-id uid}
-                                           {:sort {:created-at -1} :limit 1}))]
-                (if p
-                  {:status 200 :body p}
-                  {:status 404 :body {:status "error" :message "No last proset found"}})))}]
      ["/user/:user-id/all-questions/submit"
       {:post (fn [req]
                (let [uid (get-in req [:path-params :user-id])
@@ -127,8 +117,12 @@
      ["/by-id/:proset-id/submit"
       {:post (fn [req]
                (let [pid (get-in req [:path-params :proset-id])
-                     answers (get-in req [:body :answers])]
-                 {:status 200 :body (english/submit-proset! (:db db) pid answers)}))}]
+                     answers (get-in req [:body :answers])
+                     proset (mc/find-one-as-map (:db db) "prosets" {:_id pid})
+                     problems (:problems proset)
+                     result (english/grade-problems problems answers)]
+                 {:status 200 :body result}))}]
+
 
      ;; fetch all user questions
      ["/user/:user-id/all-questions"
