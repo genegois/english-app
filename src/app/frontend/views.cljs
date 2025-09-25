@@ -163,7 +163,7 @@
              [:div.btn-group
               [:button.btn.btn-primary
                {:on-click #(set! (.-hash js/location) (str "#practice/" (:_id m)))}
-               "Mulai Practice"]]
+               "Menu Practice"]]
              [:div
               [:p.small "Practice belum ada / masih loading..."]
               [:button.btn.btn-success
@@ -218,13 +218,13 @@
    [:div.btn-group
     [:button.btn.btn-primary
      {:on-click #(rf/dispatch [:generate-assessment])}
-     "Generate Assessment Baru"]
+     "Generate Assessment"]
 
     [:button.btn.btn-secondary
      {:on-click #(do
                    (rf/dispatch [:fetch-assessment])
                    (set! (.-hash js/location) "#assessment-test"))}
-     "Mulai Tes yang ada"]]])
+     "Mulai Tes!"]]])
 
 (defn assessment-test-page []
   (let [a @(rf/subscribe [:assessment])
@@ -256,7 +256,7 @@
                                (sort-by key @answers))])}
            "Submit Jawaban"]]
 
-         [:p "Belum ada assessment gan, generate dulu!"])])))
+         [:p "Belum ada assessment gan, generate assessment dulu gih!"])])))
 
 
 (defn assessment-result-page []
