@@ -1,7 +1,8 @@
 # So, How to use this??
 1. Download the code (or whatever method u know to test this code).
-2. Tambahin profiles.clj di root file (di dalem english-app) dulu 
-3. Masuk ke file english-app lewat terminal (npm), terus:
+2. Tambahin profiles.clj di root file (di dalem english-app) dulu
+3. Jalanin backend lewat dev/dev.clj. Reload semua file, abis itu jalanin (start)
+4. Jalanin frontend lewat terminal npx, terus:
    - npm install shadow-cljs --save-dev
    - npm install react react-dom
    - npx shadow-cljs watch app
@@ -35,6 +36,7 @@ Public License, v. 2.0 are satisfied: GNU General Public License as published by
 the Free Software Foundation, either version 2 of the License, or (at your
 option) any later version, with the GNU Classpath Exception which is available
 at https://www.gnu.org/software/classpath/license.html.
+
 
 
 
