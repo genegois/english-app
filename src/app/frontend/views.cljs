@@ -4,7 +4,7 @@
    [reagent.core :as r]))
 
 ;; -----------------------------------------------------------------------------
-;; Helper Input
+;; Helper
 ;; -----------------------------------------------------------------------------
 (defn input-field [val-atom placeholder type]
   [:input {:type type
@@ -12,6 +12,22 @@
            :value (or @val-atom "")
            :placeholder placeholder
            :on-change #(reset! val-atom (.. % -target -value))}])
+
+(defn shuffle-problems [problems]
+  (->> problems
+       shuffle
+       (map (fn [q]
+              (let [choices (:choices q)
+                    pairs   (shuffle (map-indexed vector choices))
+                    idx-map (into {} (map-indexed (fn [i [orig-idx choice]] [i orig-idx]) pairs))
+                    new-choices (mapv second pairs)
+                    new-answer (first (keep-indexed #(when (= (second %2) (get choices (:answer-idx q))) %1) pairs))]
+                (assoc q
+                       :choices new-choices
+                       :answer-idx new-answer
+                       :idx-map idx-map))))
+       vec))
+
 
 ;; -----------------------------------------------------------------------------
 ;; AUTH
@@ -181,100 +197,124 @@
   (let [topic (r/atom "")
         diff  (r/atom "easy")]
     (fn []
-      [:div
-       [:h2 "Generate Materi"]
+      [:div.container
+       [:h2.page-title "Generate Materi"]
+
+       ;; input topik
        [input-field topic "Topik (misal Vocabulary)" "text"]
-       [:select {:value @diff
-                 :on-change #(reset! diff (.. % -target -value))}
+
+       ;; select difficulty
+       [:select.input-field
+        {:value @diff
+         :on-change #(reset! diff (.. % -target -value))}
         [:option {:value "easy"} "Easy"]
         [:option {:value "medium"} "Medium"]
         [:option {:value "hard"} "Hard"]]
+
+       ;; tombol generate
        [:div
-        [:button {:on-click #(rf/dispatch [:generate-material {:topic @topic :difficulty @diff}])}
+        [:button.btn.btn-success
+         {:on-click #(rf/dispatch [:generate-material {:topic @topic :difficulty @diff}])}
          "Generate"]]
-       [:p [:a {:href "#materials"} "Lihat List Materi"]]])))
+
+       ;; link balik ke list
+       [:p.small
+        [:a {:href "#materials"} "← Lihat List Materi"]]])))
 
 ;; -----------------------------------------------------------------------------
 ;; ASSESSMENT
 ;; -----------------------------------------------------------------------------
 (defn assessment-page []
-  [:div
-   [:h2 "Assessment"]
-   [:button {:on-click #(rf/dispatch [:generate-assessment])} "Generate Assessment"]
-   [:button {:on-click #(do
-                          (rf/dispatch [:fetch-assessment])
-                          (set! (.-hash js/location) "#assessment-test"))}
-    "Mulai Tes"]])
+  [:div.container
+   [:h2.page-title "Assessment"]
+   [:p.desc
+    "Assessment ini adalah tes menyeluruh untuk ngecek kemampuan lo "
+    "dalam grammar, vocabulary, dan reading. Anggep aja ini ‘ultimate test’ "
+    "buat tau level lo sekarang."]
+
+   [:div.btn-group
+    [:button.btn.btn-primary
+     {:on-click #(rf/dispatch [:generate-assessment])}
+     "Generate Assessment Baru"]
+
+    [:button.btn.btn-secondary
+     {:on-click #(do
+                   (rf/dispatch [:fetch-assessment])
+                   (set! (.-hash js/location) "#assessment-test"))}
+     "Mulai Tes yang ada"]]])
 
 (defn assessment-test-page []
   (let [a @(rf/subscribe [:assessment])
-        answers (r/atom {})]
-    [:div
-     [:h2 "Assessment Test"]
-     (if (seq (:questions a))
-       [:div
-        [:ol
-         (for [[idx q] (map-indexed vector (:questions a))]
-           ^{:key (str "assess-q-" idx)}
-           [:li
-            [:div (:problem q)]
-            [:ul
-             (for [[i opt] (map-indexed vector (:options q))]
-               ^{:key (str "assess-opt-" idx "-" i)}
-               [:li
-                [:label
-                 [:input {:type "radio"
-                          :name (str "assess-q" idx)
-                          :value i
-                          :on-change #(swap! answers assoc idx i)}]
-                 (str (char (+ 65 i)) ". " opt)]])]])]
-        [:button
-         {:on-click #(rf/dispatch
-                      [:submit-assessment
-                       (mapv (fn [[i sel]] {:selected sel})
-                             (sort-by key @answers))])}
-         "Submit Jawaban"]]
-       [:p "Belum ada assessment gan, generate dulu!"])]))
+        answers (r/atom {})
+        shuffled (r/atom nil)]
+    (fn []
+      [:div.container
+       [:h2.page-title "Assessment Test"]
+       (if (seq (:questions a))
+         (let [qs (or @shuffled (reset! shuffled (shuffle-problems (:questions a))))]
+           [:div
+            [:ol
+             (for [[idx q] (map-indexed vector qs)]
+               ^{:key (str "assess-q-" idx)}
+               [:li.question
+                [:div.problem (:problem q)]
+                [:ul.options
+                 (for [[i opt] (map-indexed vector (:choices q))]
+                   ^{:key (str "assess-opt-" idx "-" i)}
+                   [:li.option
+                    [:label
+                     [:input {:type "radio"
+                              :name (str "assess-q" idx)
+                              :value i
+                              :on-change #(swap! answers assoc idx i)}]
+                     [:span (str (char (+ 65 i)) ". " opt)]]])]])]
+            [:button.btn.btn-primary
+             {:on-click #(rf/dispatch
+                          [:submit-assessment
+                           (mapv (fn [[i sel]] {:selected sel})
+                                 (sort-by key @answers))])}
+             "Submit Jawaban"]])
+         [:p "Belum ada assessment gan, generate dulu!"])])))
 
 
 (defn assessment-result-page []
   (let [result @(rf/subscribe [:assessment])]
-    [:div
-     [:h2 "Hasil Assessment"]
+    [:div.container
+     [:h2.page-title "Hasil Assessment"]
      (if result
        [:div
-        ;; skor
-        [:p [:strong "Skor: "]
-         (str (get-in result [:score :correct] 0)
+        [:p.score
+         (str "Skor: "
+              (get-in result [:score :correct] 0)
               " / "
               (get-in result [:score :total] 0))]
 
-        ;; soal-soal
         [:ol
          (for [[idx q] (map-indexed vector (:questions result))]
            ^{:key (str "ass-res-" idx)}
-           [:li
-            [:div (:problem q)]
-            [:ul
-             (for [[i choice] (map-indexed vector (:options q))]
+           [:li.question
+            [:div.problem (:problem q)]
+            [:ul.options
+             (for [[i choice] (map-indexed vector (:choices q))]
                ^{:key (str "ass-opt-" idx "-" i)}
-               [:li
+               [:li.option
                 (cond
                   (= i (:user-answer q))
-                  [:span {:style {:font-weight "bold"
-                                  :color (if (:correct? q) "green" "red")}}
+                  [:span.user-answer {:class (if (:correct? q) "correct" "wrong")}
                    (str (char (+ 65 i)) ". " choice)
                    (if (:correct? q) " ✓" " ✗")]
 
                   (= i (:answer-idx q))
-                  [:span {:style {:color "green"}}
+                  [:span.correct-answer
                    (str (char (+ 65 i)) ". " choice " (correct)")]
 
                   :else (str (char (+ 65 i)) ". " choice))])]
-            [:p [:em "Explanation: "] (get-in q [:explanation :en])]
-            [:p [:em "Penjelasan: "] (get-in q [:explanation :id])]])]
 
-        ;; weak topics section
+            [:p.explanation
+             [:em "Explanation: "] (get-in q [:explanation :en])]
+            [:p.explanation
+             [:em "Penjelasan: "] (get-in q [:explanation :id])]])]
+
         (let [weak (or (:weak-topics result) [])
               already? (:weak-generated? result)]
           [:div
@@ -283,11 +323,14 @@
              [:div
               [:ul (for [t weak] ^{:key t} [:li t])]
               (if-not already?
-                [:button {:on-click #(rf/dispatch [:generate-weak-topics])}
+                [:button.btn.btn-accent
+                 {:on-click #(rf/dispatch [:generate-weak-topics])}
                  "Generate materi buat topik lemah"]
                 [:p "Materi lemah sudah digenerate!"])]
-             [:p "Ngeri kali brok! Nggak ada topik lemah nih yang ketemu"])])]
+             [:p "Ngeri kali brok! Nggak ada topik lemah nih 🎉"])])]
+
        [:p "Belum ada hasil assessment. Coba kerjain dulu gih tesnya!"])]))
+
 
 ;; -----------------------------------------------------------------------------
 ;; PRACTICE
@@ -312,14 +355,7 @@
           {:on-click #(do
                         (rf/dispatch [:fetch-all-questions material-id])
                         (set! (.-hash js/location) (str "#practice-all/" material-id)))}
-          "Tes Semua Soal Materi Ini"]
-
-         (when (:user @(rf/subscribe [:user]))
-           [:button.btn.btn-success
-            {:on-click #(do
-                          (rf/dispatch [:fetch-last-proset])
-                          (set! (.-hash js/location) "#practice-test"))}
-            "Berlatih soal generate terakhir!"])]]
+          "Tes Semua Soal Materi Ini"]]]
        [:div.panel
         [:p.small "Material-id belum tersedia. Masuk ke halaman materi lewat List Materi atau refresh."]
         [:button.btn.btn-primary
@@ -350,48 +386,52 @@
 
 (defn practice-proset-page []
   (let [p @(rf/subscribe [:current-proset])
-        answers (r/atom {})]
+        answers (r/atom {})
+        shuffled (r/atom nil)]
     [:div.container
-     [:h2 (str "Bank Soal - " (or (:bank-code p) (:topic p)))]
+     [:h2 (str (or (:bank-code p) (:topic p)))]
      (if (seq (:problems p))
-       [:div
-        [:ol
-         (for [[idx q] (map-indexed vector (:problems p))]
-           ^{:key (str "proset-q-" idx)}
-           [:li.question
-            [:div.problem (:problem q)]
-            [:ul.options
-             (for [[i choice] (map-indexed vector (:choices q))]
-               ^{:key (str "proset-opt-" idx "-" i)}
-               [:li.option
-                [:label
-                 [:input {:type "radio"
-                          :name (str "proset-q" idx)
-                          :value i
-                          :on-change #(swap! answers assoc idx i)}]
-                [:span (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
-        [:div {:style {:margin-top "1em"}}
-         [:button.btn.btn-success
-          {:on-click #(rf/dispatch
-                       [:submit-proset
-                        (:_id p)
-                        (mapv (fn [[i sel]] {:selected sel})
-                              (sort-by key @answers))])}
-          "Submit Jawaban"]]]
+       (let [qs (or @shuffled (reset! shuffled (shuffle-problems (:problems p))))]
+         [:div
+          [:ol
+           (for [[idx q] (map-indexed vector qs)]
+             ^{:key (str "proset-q-" idx)}
+             [:li.question
+              [:div.problem (:problem q)]
+              [:ul.options
+               (for [[i choice] (map-indexed vector (:choices q))]
+                 ^{:key (str "proset-opt-" idx "-" i)}
+                 [:li.option
+                  [:label
+                   [:input {:type "radio"
+                            :name (str "proset-q" idx)
+                            :value i
+                            :on-change #(swap! answers assoc idx i)}]
+                   [:span (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
+          [:div {:style {:margin-top "1em"}}
+           [:button.btn.btn-success
+            {:on-click #(rf/dispatch
+                         [:submit-proset
+                          (:_id p)
+                          (mapv (fn [[i sel]] {:selected sel})
+                                (sort-by key @answers))])}
+            "Submit Jawaban"]]])
        [:div.panel
         [:p "Soal kosong bro, coba generate dulu."]])]))
+
 (defn practice-test-page []
   (let [ps @(rf/subscribe [:prosets])
-        answers (r/atom {})]
+        answers (r/atom {})
+        shuffled (r/atom nil)]
     [:div.container
      [:h2.page-title "Practice Test"]
      (if (seq ps)
        (let [first-proset (first ps)
-             problems (:problems first-proset)
+             qs (or @shuffled (reset! shuffled (shuffle-problems (:problems first-proset))))
              proset-id (:_id first-proset)]
          [:div
           [:ol
-           (for [[idx p] (map-indexed vector problems)]
+           (for [[idx p] (map-indexed vector qs)]
              ^{:key (str "ptest-q-" idx)}
              [:li.question
               [:div.problem (:problem p)]
@@ -416,19 +456,90 @@
             "Submit Jawaban"]]])
        [:p "Belum ada practice, generate dulu di menu Practice!"])]))
 
+(defn practice-all-page [material-id]
+  (let [answers (r/atom {})
+        all @(rf/subscribe [:all-questions])
+        shuffled (r/atom nil)]
+    [:div.container
+     [:h2.page-title "Tes Semua Soal Materi Ini"]
+     (if (seq (:problems all))
+       (let [qs (or @shuffled (reset! shuffled (shuffle-problems (:problems all))))]
+         [:div
+          [:ol
+           (for [[idx q] (map-indexed vector qs)]
+             ^{:key (str "all-q-" idx)}
+             [:li.question
+              [:div.problem (:problem q)]
+              [:ul.options
+               (for [[i choice] (map-indexed vector (:choices q))]
+                 ^{:key (str "all-opt-" idx "-" i)}
+                 [:li.option
+                  [:label
+                   [:input {:type "radio"
+                            :name (str "all-q" idx)
+                            :value i
+                            :on-change #(swap! answers assoc idx i)}]
+                   [:span {:style {:margin-left "0.6em"}}
+                    (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
+          [:div {:style {:margin-top "1em"}}
+           [:button.btn.btn-success
+            {:on-click #(rf/dispatch
+                         [:submit-all-questions
+                          material-id
+                          (mapv (fn [[i sel]] {:selected sel})
+                                (sort-by key @answers))])}
+            "Submit Semua Jawaban"]]])
+       [:p "Belum ada soal di materi ini."])]))
+
+(defn practice-all-user-page []
+  (let [answers (r/atom {})
+        all @(rf/subscribe [:user-all-questions])
+        shuffled (r/atom nil)]
+    [:div.container
+     [:h2.page-title "Tes Semua Soal dari Semua Materi"]
+     (if (seq (:problems all))
+       (let [qs (or @shuffled (reset! shuffled (shuffle-problems (:problems all))))]
+         [:div
+          [:ol
+           (for [[idx q] (map-indexed vector qs)]
+             ^{:key (str "all-user-q-" idx)}
+             [:li.question
+              [:div.problem (:problem q)]
+              [:ul.options
+               (for [[i choice] (map-indexed vector (:choices q))]
+                 ^{:key (str "all-user-opt-" idx "-" i)}
+                 [:li.option
+                  [:label
+                   [:input {:type "radio"
+                            :name (str "all-user-q" idx)
+                            :value i
+                            :on-change #(swap! answers assoc idx i)}]
+                   [:span {:style {:margin-left "0.6em"}}
+                    (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
+          [:div {:style {:margin-top "1em"}}
+           [:button.btn.btn-accent
+            {:on-click #(rf/dispatch
+                         [:submit-user-all-questions
+                          (mapv (fn [[i sel]] {:selected sel})
+                                (sort-by key @answers))])}
+            "Submit Semua Jawaban"]]])
+       [:p "Belum ada soal di semua materi lo."])]))
+
 (defn practice-result-page []
-  (let [result @(rf/subscribe [:last-proset-result])]
+  (let [result @(rf/subscribe [:last-proset-result])
+        qs     (:problems result)]
     [:div.container
      [:h2.page-title "Hasil Practice"]
-     (if result
+     (if (seq qs)
        [:div
         [:p.score
          (str "Skor: "
               (get-in result [:score :correct] 0)
               " / "
               (get-in result [:score :total] 0))]
+
         [:ol
-         (for [[idx q] (map-indexed vector (:problems result))]
+         (for [[idx q] (map-indexed vector qs)]
            ^{:key (str "res-" idx)}
            [:li.question
             [:div.problem (:problem q)]
@@ -441,81 +552,22 @@
                   [:span.user-answer {:class (if (:correct? q) "correct" "wrong")}
                    (str (char (+ 65 i)) ". " choice)
                    (if (:correct? q) " ✓" " ✗")]
+
                   (= i (:answer-idx q))
                   [:span.correct-answer
                    (str (char (+ 65 i)) ". " choice " (correct)")]
+
                   :else (str (char (+ 65 i)) ". " choice))])]
-            [:p.explanation
-             [:em "Explanation: "] (get-in q [:explanation :en])]
-            [:p.explanation
-             [:em "Penjelasan: "] (get-in q [:explanation :id])]])]]
+
+            (when-let [ex (get-in q [:explanation :en])]
+              [:p.explanation
+               [:em "Explanation: "] ex])
+
+            (when-let [ex-id (get-in q [:explanation :id])]
+              [:p.explanation
+               [:em "Penjelasan: "] ex-id])])]]
        [:p "Belum ada hasil practice. Coba kerjain dulu tesnya!"])]))
 
-(defn practice-all-page [material-id]
-  (let [answers (r/atom {})
-        all @(rf/subscribe [:all-questions])]
-    [:div.container
-     [:h2.page-title "Tes Semua Soal Materi Ini"]
-     (if (seq (:problems all))
-       [:div
-        [:ol
-         (for [[idx q] (map-indexed vector (:problems all))]
-           ^{:key (str "all-q-" idx)}
-           [:li.question
-            [:div.problem (:problem q)]
-            [:ul.options
-             (for [[i choice] (map-indexed vector (:choices q))]
-               ^{:key (str "all-opt-" idx "-" i)}
-               [:li.option
-                [:label
-                 [:input {:type "radio"
-                          :name (str "all-q" idx)
-                          :value i
-                          :on-change #(swap! answers assoc idx i)}]
-                 [:span {:style {:margin-left "0.6em"}}
-                  (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
-
-        [:div {:style {:margin-top "1em"}}
-         [:button.btn.btn-success
-          {:on-click #(rf/dispatch
-                       [:submit-all-questions
-                        material-id
-                        (mapv (fn [[i sel]] {:selected sel})
-                              (sort-by key @answers))])}
-          "Submit Semua Jawaban"]]]
-       [:p "Belum ada soal di materi ini."])]))
-
-(defn practice-all-user-page []
-  (let [answers (r/atom {})
-        all @(rf/subscribe [:user-all-questions])]
-    [:div.container
-     [:h2.page-title "Tes Semua Soal dari Semua Materi"]
-     (if (seq (:problems all))
-       [:div
-        [:ol
-         (for [[idx q] (map-indexed vector (:problems all))]
-           ^{:key (str "all-user-q-" idx)}
-           [:li.question
-            [:div.problem (:problem q)]
-            [:ul.options
-             (for [[i choice] (map-indexed vector (:choices q))]
-               ^{:key (str "all-user-opt-" idx "-" i)}
-               [:li.option
-                [:label
-                 [:input {:type "radio"
-                          :name (str "all-user-q" idx)
-                          :value i
-                          :on-change #(swap! answers assoc idx i)}]
-                 [:span {:style {:margin-left "0.6em"}}
-                  (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
-        [:div {:style {:margin-top "1em"}}
-         [:button.btn.btn-accent
-          {:on-click #(rf/dispatch
-                       [:submit-user-all-questions
-                        (mapv (fn [[i sel]] {:selected sel})
-                              (sort-by key @answers))])}
-          "Submit Semua Jawaban"]]]
-       [:p "Belum ada soal di semua materi lo."])]))
 ;; -----------------------------------------------------------------------------
 ;; ROOT
 ;; -----------------------------------------------------------------------------
