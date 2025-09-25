@@ -78,18 +78,13 @@
  :register-success
  (fn [{:keys [db]} [_ resp]]
    (let [user (if (map? resp) resp (js->clj resp :keywordize-keys true))
-         ;; jangan fallback ke email, harus ada _id/id
-         id   (or (:_id user) (:id user))
-         user (assoc user :id id)]
-     (if id
-       (do
-         (js/localStorage.setItem "user" (js/JSON.stringify (clj->js user)))
-         (js/alert (str "Register sukses! Welkomm, " (or (:username user) (:email user))))
-         {:db (assoc db :user user :page :home)
-          :dispatch [:fetch-materials]})
-       ;; kalau backend nggak ngasih id, fallback: suruh login ulang
-       {:db (assoc db :page :login)
-        :dispatch [:notify "Register berhasil, silakan login ulang biar dapet ID."]}))))
+         id   (or (:id user) (:_id user) (:email user))
+         user (if id (assoc user :id id) user)]
+     (js/alert "Register sukses! Silakan login.")
+     (if (:id user)
+       {:db (assoc db :user user :page :home)
+        :dispatch [:fetch-materials]}
+       {:db (assoc db :page :login)}))))
 
 (rf/reg-event-fx
  :login
@@ -106,7 +101,7 @@
  :login-success
  (fn [{:keys [db]} [_ resp]]
    (let [user (if (map? resp) resp (js->clj resp :keywordize-keys true))
-         user (assoc user :id (or (:_id user) (:id user)  (:email user)))]
+         user (assoc user :id (or (:id user) (:_id user) (:email user)))]
      (js/localStorage.setItem "user" (js/JSON.stringify (clj->js user)))
      (js/alert (str "Login sukses: " (or (:username user) (:email user))))
      {:db (assoc db :user user :page :home)
@@ -257,19 +252,27 @@
 (rf/reg-event-db
  :submit-proset-success
  (fn [db [_ resp]]
-   ;; debug dulu biar yakin
-   (js/console.log "Submit result:" (clj->js resp))
    (js/alert (str "Practice selesai! Skor: "
                   (get-in resp [:score :correct] 0) "/"
                   (get-in resp [:score :total] 0)))
    (-> db
-       ;; pastiin resp punya :problems yang udah graded
-       (assoc :last-proset-result
-              (if (:score resp)
-                resp
-                {:score {:correct 0 :total 0}
-                 :problems []}))
+       (assoc :last-proset-result resp)
        (assoc :page :practice-result))))
+
+(rf/reg-event-fx
+ :fetch-last-proset
+ (fn [{:keys [db]} _]
+   (let [uid (get-in db [:user :id])]
+     {:http-xhrio {:method :get
+                   :uri (api/url (str "/prosets/user/" uid "/last"))
+                   :response-format (ajax/json-response-format {:keywords? true})
+                   :on-success [:set-last-proset-result]
+                   :on-failure [:api-failure "fetch-last-proset"]}})))
+
+(rf/reg-event-db
+ :set-last-proset-result
+ (fn [db [_ resp]]
+   (assoc db :last-proset-result resp)))
 
 
 (rf/reg-event-fx
@@ -359,7 +362,7 @@
 
 (rf/reg-event-db
  :set-assessment
- (fn [db [_ a]] 
+ (fn [db [_ a]]
    (assoc db :assessment a :assessment-started? false)))
 
 ;; submit assessment
