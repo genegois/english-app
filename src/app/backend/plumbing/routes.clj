@@ -58,8 +58,9 @@
                (let [uid   (get-in req [:path-params :user-id])
                      topics (get-in req [:body :topics])]
                  (doseq [t topics]
-                   (let [m (english/generate-material! (:db db) openai uid t "medium")]
-                     (english/generate-proset! (:db db) openai (:_id m) "medium")))
+                   (let [m (english/generate-material! (:db db) openai uid t "easy")]
+                     (english/generate-proset! (:db db) openai (:_id m) "medium")
+                     (english/generate-proset! (:db db) openai (:_id m) "hard")))
                  {:status 200
                   :body {:status "ok" :generated topics}}))}]]
 
