@@ -105,7 +105,7 @@
      (js/localStorage.setItem "user" (js/JSON.stringify (clj->js user)))
      (js/alert (str "Login sukses, alo " (or (:username user) (:email user)) "!")) 
      {:db (assoc db :user user :page :home)
-      :dispatch-n [[:fetch-materials]]})))
+      :dispatch [:fetch-materials]})))
 
 
 ;; ------------------------------------------------------------------
@@ -417,3 +417,4 @@
  :start-assessment
  (fn [db _]
    (assoc db :assessment-started? true)))
+
