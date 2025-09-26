@@ -103,9 +103,9 @@
    (let [user (if (map? resp) resp (js->clj resp :keywordize-keys true))
          user (assoc user :id (or (:id user) (:_id user) (:email user)))]
      (js/localStorage.setItem "user" (js/JSON.stringify (clj->js user)))
-     (js/alert (str "Login sukses, alo " (or (:username user) (:email user))) "!")
+     (js/alert (str "Login sukses, alo " (or (:username user) (:email user)) "!")) 
      {:db (assoc db :user user :page :home)
-      :dispatch [:fetch-materials]})))
+      :dispatch-n [[:fetch-materials]]})))
 
 
 ;; ------------------------------------------------------------------
@@ -207,6 +207,7 @@
                  :response-format (ajax/json-response-format {:keywords? true})
                  :on-success [:generate-prosets-success]
                  :on-failure [:api-failure "generate-prosets"]}}))
+
 
 (rf/reg-event-fx
  :generate-prosets-success
