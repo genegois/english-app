@@ -50,8 +50,8 @@
   [:div.container
    [:h2 "Home"]
    [:div.btn-group
-    [:button.btn {:on-click #(set! (.-hash js/location) "#generate")} "Generate manual"]
-    [:button.btn {:on-click #(set! (.-hash js/location) "#materials")} "List materi"]
+    [:button.btn {:on-click #(set! (.-hash js/location) "#generate")} "Generate Manual"]
+    [:button.btn {:on-click #(set! (.-hash js/location) "#materials")} "List Materi"]
     [:button.btn {:on-click #(set! (.-hash js/location) "#assessment")} "Assessment"]]])
 
 ;; -----------------------------------------------------------------------------
@@ -165,11 +165,8 @@
                {:on-click #(set! (.-hash js/location) (str "#practice/" (:_id m)))}
                "Menu Practice"]]
              [:div
-              [:p.small "Practice belum ada / masih loading..."]
-              [:button.btn.btn-success
-               {:on-click #(rf/dispatch [:generate-prosets (:_id m) (:difficulty m)])}
-               "Generate Practice"]])]]
-
+              [:p.small "Practice belum ada boss. Coba backward forward dah kalo lo ngerasa udah ada prosets
+                         (ya ini mini bug)"]])]]
          [:p.small "Materi belum dimuat. Klik dari List dulu."])])))
 
 
@@ -311,31 +308,40 @@
 ;; PRACTICE
 ;; -----------------------------------------------------------------------------
 (defn practice-page [material-id]
-  (let [ps @(rf/subscribe [:prosets])
-        last @(rf/subscribe [:last-proset-result])]
-    [:div.container
-     [:h2.page-title "Practice Menu"]
-     (if (some? material-id)
-       [:div
-        [:div.btn-group
-         [:button.btn.btn-primary
-          {:on-click #(rf/dispatch [:generate-prosets material-id "medium"])}
-          "Generate Practice"]
-         [:button.btn.btn-secondary
-          {:on-click #(do
-                        (rf/dispatch [:open-bank-soal material-id])
-                        (set! (.-hash js/location) "#bank-soal"))}
-          "Bank Soal"]
-         [:button.btn.btn-accent
-          {:on-click #(do
-                        (rf/dispatch [:fetch-all-questions material-id])
-                        (set! (.-hash js/location) (str "#practice-all/" material-id)))}
-          "Tes Semua Soal Materi Ini"]]]
-       [:div.panel
-        [:p.small "Material-id belum tersedia. Masuk ke halaman materi lewat List Materi atau refresh."]
-        [:button.btn.btn-primary
-         {:on-click #(rf/dispatch [:fetch-materials])}
-         "Refresh daftar materi"]])]))
+  (let [difficulty (r/atom "easy")]
+    (fn []
+      [:div.container
+       [:h2.page-title "Practice Menu"]
+       (if (some? material-id)
+         [:div 
+          [:p.small "Pilih Difficulty:"]
+          [:select 
+           {:value @difficulty
+            :on-change #(reset! difficulty (.. % -target -value))}
+           [:option {:value "easy"} "Easy"]
+           [:option {:value "medium"} "Medium"]
+           [:option {:value "hard"} "Hard"]]
+
+          [:div.btn-group
+           [:button.btn.btn-primary
+            {:on-click #(rf/dispatch [:generate-prosets material-id @difficulty])}
+            "Generate Practice"]
+           [:button.btn.btn-secondary
+            {:on-click #(do
+                          (rf/dispatch [:open-bank-soal material-id])
+                          (set! (.-hash js/location) "#bank-soal"))}
+            "Bank Soal"]
+           [:button.btn.btn-accent
+            {:on-click #(do
+                          (rf/dispatch [:fetch-all-questions material-id])
+                          (set! (.-hash js/location) (str "#practice-all/" material-id)))}
+            "Tes Semua Soal Materi Ini"]]]
+         [:div.panel
+          [:p.small "Material-id lom ada."]
+          [:button.btn.btn-primary
+           {:on-click #(rf/dispatch [:fetch-materials])}
+           "Refresh daftar materi"]])])))
+
 
 (defn bank-soal-page []
   (let [ps @(rf/subscribe [:prosets])]
