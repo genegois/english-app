@@ -182,25 +182,17 @@
     (fn []
       [:div.container
        [:h2.page-title "Generate Materi"]
-
-       ;; input topik
        [input-field topic "Topik (misal Vocabulary)" "text"]
-
-       ;; select difficulty
        [:select.input-field
         {:value @diff
          :on-change #(reset! diff (.. % -target -value))}
         [:option {:value "easy"} "Easy"]
         [:option {:value "medium"} "Medium"]
         [:option {:value "hard"} "Hard"]]
-
-       ;; tombol generate
        [:div
         [:button.btn.btn-success
          {:on-click #(rf/dispatch [:generate-material {:topic @topic :difficulty @diff}])}
          "Generate"]]
-
-       ;; link balik ke list
        [:p.small
         [:a {:href "#materials"} "← Lihat List Materi"]]])))
 
@@ -252,8 +244,9 @@
           [:button.btn.btn-primary
            {:on-click #(rf/dispatch
                         [:submit-assessment
-                         (mapv (fn [[i sel]] {:selected sel})
-                               (sort-by key @answers))])}
+                        (mapv (fn [i]
+                                {:selected (get @answers i nil)})
+                              (range (count (:questions a))))])}
            "Submit Jawaban"]]
 
          [:p "Belum ada assessment gan, generate assessment dulu gih!"])])))
@@ -393,8 +386,9 @@
           {:on-click #(rf/dispatch
                        [:submit-proset
                         (:_id p)
-                        (mapv (fn [[i sel]] {:selected sel})
-                              (sort-by key @answers))])}
+                        (mapv (fn [i] 
+                                {:selected (get @answers i nil)})
+                              (range (count (:problems p))))])}
           "Submit Jawaban"]]]
 
        [:div.panel
@@ -428,8 +422,9 @@
           {:on-click #(rf/dispatch
                        [:submit-all-questions
                         material-id
-                        (mapv (fn [[i sel]] {:selected sel})
-                              (sort-by key @answers))])}
+                        (mapv (fn [i]
+                                {:selected (get @answers i nil)})
+                              (range (count (:problems all))))])}
           "Submit Semua Jawaban"]]]
 
        [:p "Belum ada soal di materi ini."])]))
@@ -461,8 +456,9 @@
          [:button.btn.btn-accent
           {:on-click #(rf/dispatch
                        [:submit-user-all-questions
-                        (mapv (fn [[i sel]] {:selected sel})
-                              (sort-by key @answers))])}
+                        (mapv (fn [i]
+                                {:selected (get @answers i nil)})
+                              (range (count (:problems all))))])}
           "Submit Semua Jawaban"]]]
 
        [:p "Belum ada soal di semua materi lo."])]))
