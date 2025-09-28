@@ -178,4 +178,6 @@ label > input[type="radio"]:checked + span {
   color: #2563eb;
 }
 
-
+.lang-list li {
+  margin-bottom: 15px;
+}
