@@ -13,3 +13,5 @@
 (rf/reg-sub :last-proset-result (fn [db _] (:last-proset-result db)))
 (rf/reg-sub :assessment-started? (fn [db _] (:assessment-started? db)))
 (rf/reg-sub :page-params (fn [db _] (:page-params db)))
+(rf/reg-sub :assessment-submitted? (fn [db _] (get-in db [:assessment :submitted?])))
+(rf/reg-sub :last-assessment-timestamp (fn [db _] (get-in db [:assessment :submitted-at])))
