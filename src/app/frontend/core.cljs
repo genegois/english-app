@@ -1,7 +1,7 @@
 (ns app.frontend.core
   (:require
-   [reagent.dom.client :as rdom]   ;; React 18 API
-   [reagent.core :as r]            ;; as-element ada di sini
+   [reagent.dom.client :as rdom] 
+   [reagent.core :as r]            
    [re-frame.core :as rf]
    [clojure.string :as str]
    [app.frontend.events]
@@ -25,10 +25,9 @@
           (= v "materials") [:materials]
           (= v "assessment") [:assessment]
           (= v "assessment-test") [:assessment-test]
-          (= v "login")     [:login]
-          (= v "register")  [:register]
+          (= v "assessment-result") [:assessment-result] 
+          (= v "auth")     [:auth]
           :else             [:home])))))
-
 
 (defn handle-popstate [_]
   (let [[p & params] (parse-hash)]
@@ -39,7 +38,7 @@
         user  (when saved (js/JSON.parse saved))]
     (when user
       (rf/dispatch-sync [:set-user user])
-      (rf/dispatch [:fetch-materials (:id user)]))) ;; <-- tambahin ini
+      (rf/dispatch [:fetch-materials (:id user)])))
 
   ;; init db
   (rf/dispatch-sync [:init])
@@ -48,7 +47,7 @@
   (let [[p & params] (parse-hash)]
     (if (and (nil? @(rf/subscribe [:user]))
              (= p :home))
-      (rf/dispatch [:set-page :register])
+      (rf/dispatch [:set-page :auth])
       (rf/dispatch (vec (concat [:set-page p] params)))))
 
   ;; listen browser back/forward
@@ -56,7 +55,3 @@
 
   ;; render app
   (.render root (r/as-element [views/app-root])))
-
-
-
-
