@@ -13,7 +13,6 @@
 (defn api [db openai _]
   ["/api"
    ["/v1"
-
     ;; --- AUTH ---
     ["/auth"
      ["/register"
@@ -26,8 +25,7 @@
                                    :email email
                                    :username username}]
                      (mc/insert-and-return (:db db) "users" new-user)
-                     {:status 200 :body new-user})
-)))}]
+                     {:status 200 :body new-user}))))}]
      ["/login"
       {:post (fn [req]
                (let [{:keys [email]} (:body req)
@@ -40,9 +38,9 @@
     ["/materials"
      ["/generate"
       {:post (fn [req]
-               (let [{:keys [user-id topic difficulty]} (:body req)]
+               (let [{:keys [user-id topic]} (:body req)]
                  {:status 200
-                  :body (english/generate-material! (:db db) openai user-id topic difficulty)}))}]
+                  :body (english/generate-material! (:db db) openai user-id topic)}))}]
      ["/user/:user-id"
       {:get (fn [req]
               (let [uid (get-in req [:path-params :user-id])]
@@ -58,7 +56,7 @@
                (let [uid   (get-in req [:path-params :user-id])
                      topics (get-in req [:body :topics])]
                  (doseq [t topics]
-                   (let [m (english/generate-material! (:db db) openai uid t "easy")]
+                   (let [m (english/generate-material! (:db db) openai uid t)]
                      (english/generate-proset! (:db db) openai (:_id m) "medium")
                      (english/generate-proset! (:db db) openai (:_id m) "hard")))
                  {:status 200
@@ -91,13 +89,13 @@
                  :body {:material-id mid
                         :problems all-problems}}))}]
      ["/material/:material-id/submit-all"
-  {:post (fn [req]
-           (let [mid (get-in req [:path-params :material-id])
-                 answers (get-in req [:body :answers])
-                 prosets (mc/find-maps (:db db) "prosets" {:material-id mid})
-                 all-problems (mapcat :problems prosets)
-                 result (english/grade-problems all-problems answers)]
-             {:status 200 :body result}))}]
+      {:post (fn [req]
+               (let [mid (get-in req [:path-params :material-id])
+                     answers (get-in req [:body :answers])
+                     prosets (mc/find-maps (:db db) "prosets" {:material-id mid})
+                     all-problems (mapcat :problems prosets)
+                     result (english/grade-problems all-problems answers)]
+                 {:status 200 :body result}))}]
      ["/user/:user-id/all-questions/submit"
       {:post (fn [req]
                (let [uid (get-in req [:path-params :user-id])
@@ -136,8 +134,7 @@
                 {:status 200
                  :body {:user-id uid
                         :problems all-problems}}))}]]
-
-
+    
     ;; --- ASSESSMENTS ---
     ["/assessments"
      ["/:user-id/generate"
