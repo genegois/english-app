@@ -1,7 +1,8 @@
 (ns app.frontend.views
   (:require
    [re-frame.core :as rf]
-   [reagent.core :as r]))
+   [reagent.core :as r]
+   [clojure.string :as str]))
 
 ;; -----------------------------------------------------------------------------
 ;; Helper
@@ -12,42 +13,44 @@
            :value (or @val-atom "")
            :placeholder placeholder
            :on-change #(reset! val-atom (.. % -target -value))}])
+
 ;; -----------------------------------------------------------------------------
 ;; AUTH
 ;; -----------------------------------------------------------------------------
-(defn login-page []
-  (let [email (r/atom "")]
+(defn auth-page []
+  (let [login-email    (r/atom "")
+        reg-email      (r/atom "")
+        reg-username   (r/atom "")]
     (fn []
       [:div.container
-       [:h2 "Login"]
-       [input-field email "Email" "email"]
-       [:div
-        [:button.btn.btn-primary
-         {:on-click #(rf/dispatch [:login {:email @email}])}
-         "Login"]]
-       [:p "Belum punya akun? "
-        [:a.link {:href "#register"} "Register"]]])))
+       [:h1.page-title "English Learning nih, hehe"]
+       [:p.tagline "Register dulu brok, klo udah tinggal login dah!"]
+       ;; REGISTER PANEL
+       [:div.panel
+        [:h2 "Register"]
+        [input-field reg-email "Email" "email"]
+        [input-field reg-username "Username" "text"]
+        [:div
+         [:button.btn.btn-success
+          {:on-click #(rf/dispatch
+                       [:register {:email @reg-email
+                                   :username @reg-username}])}
+          "Register"]]]
+       ;; LOGIN PANEL
+       [:div.panel
+        [:h2 "Login"]
+        [input-field login-email "Email" "email"]
+        [:div
+         [:button.btn.btn-primary
+          {:on-click #(rf/dispatch [:login {:email @login-email}])}
+          "Login"]]]])))
 
-(defn register-page []
-  (let [email (r/atom "")
-        username (r/atom "")]
-    (fn []
-      [:div.container
-       [:h2 "Register"]
-       [input-field email "Email" "email"]
-       [input-field username "Username" "text"]
-       [:div
-        [:button.btn.btn-success
-         {:on-click #(rf/dispatch [:register {:email @email
-                                              :username @username}])}
-         "Register"]]
-       [:p "Udah punya akun? "
-        [:a.link {:href "#login"} "Login"]]])))
 ;; -----------------------------------------------------------------------------
 ;; HOME
 ;; -----------------------------------------------------------------------------
 (defn home-page []
   [:div.container
+   [:h1.page-title "English Learning nih hehe"]
    [:h2 "Home"]
    [:div.btn-group
     [:button.btn {:on-click #(set! (.-hash js/location) "#generate")} "Generate Manual"]
@@ -58,8 +61,8 @@
 ;; MATERIALS
 ;; -----------------------------------------------------------------------------
 (defn materials-page []
-  (let [materials @(rf/subscribe [:materials])]
-    (fn []
+  (fn []
+    (let [materials @(rf/subscribe [:materials])] 
       [:div.container
        [:h2.page-title "List Materi"]
 
@@ -67,7 +70,10 @@
        [:div.row
         [:button.btn.btn-secondary
          {:on-click #(rf/dispatch [:fetch-materials])}
-         "Refresh"]]
+         "Refresh"]
+        [:button.btn.btn-secondary
+         {:on-click #(set! (.-hash js/location) "#/")}
+         "Balik ke halaman utama"]]
 
        ;; daftar materi
        (if (seq materials)
@@ -80,9 +86,7 @@
                :on-click (fn [e]
                            (.preventDefault e)
                            (rf/dispatch [:fetch-material (:_id m)]))}
-              (str (or (:topic m) "Untitled")
-                   " — "
-                   (or (:difficulty m) ""))]])]
+              (str (or (:topic m) "Untitled"))]])]
          [:p.small "Belum ada materi."])
 
        ;; latihan gabungan semua materi
@@ -93,7 +97,6 @@
                        (rf/dispatch [:fetch-user-all-questions])
                        (set! (.-hash js/location) "#practice-all-user"))}
          "Tes Semua Soal dari Semua Materi"]]])))
-
 
 (defn text-from [node lang]
   (cond
@@ -110,21 +113,23 @@
     (and (sequential? items) (seq items))
     [:ul (for [it items] ^{:key (text-from it lang)} [:li (text-from it lang)])]
     (map? items)
-    (let [vals (vals items)]
-      [:ul (for [[k v] items] ^{:key (str k)} [:li (str (name k) ": " (text-from v lang))])])
+    [:div 
+     (for [[k v] items] 
+       ^{:key (str k)} 
+       [:p (str (str/upper-case (name k)) ": " (text-from v lang))])]
     :else [:div (text-from items lang)]))
 
 (defn lang-block [title node]
   [:div
    [:p [:strong title]]
-   [:ul
+   [:ul.lang-list
     [:li [:strong "EN: "] (text-from node :en)]
     [:li [:strong "ID: "] (text-from node :id)]]])
 
 (defn material-page []
-  (let [m @(rf/subscribe [:current-material])
-        ps @(rf/subscribe [:prosets])]
-    (fn []
+  (fn []
+    (let [m @(rf/subscribe [:current-material])
+          ps @(rf/subscribe [:prosets])] 
       [:div.container
        [:h2.page-title "Detail Materi"]
 
@@ -165,30 +170,21 @@
                {:on-click #(set! (.-hash js/location) (str "#practice/" (:_id m)))}
                "Menu Practice"]]
              [:div
-              [:p.small "Practice belum ada boss. Coba backward forward dah kalo lo ngerasa udah ada prosets
-                         (ya ini mini bug)"]])]]
+              [:p.small "Practice belum ada boss. Lo harusnya gak lihat ini sih"]])]]
          [:p.small "Materi belum dimuat. Klik dari List dulu."])])))
-
 
 ;; -----------------------------------------------------------------------------
 ;; GENERATE
 ;; -----------------------------------------------------------------------------
 (defn generate-page []
-  (let [topic (r/atom "")
-        diff  (r/atom "easy")]
+  (let [topic (r/atom "")]
     (fn []
       [:div.container
        [:h2.page-title "Generate Materi"]
-       [input-field topic "Topik (misal Vocabulary)" "text"]
-       [:select.input-field
-        {:value @diff
-         :on-change #(reset! diff (.. % -target -value))}
-        [:option {:value "easy"} "Easy"]
-        [:option {:value "medium"} "Medium"]
-        [:option {:value "hard"} "Hard"]]
+       [input-field topic "Topik (misal Vocabulary)" "text"] 
        [:div
         [:button.btn.btn-success
-         {:on-click #(rf/dispatch [:generate-material {:topic @topic :difficulty @diff}])}
+         {:on-click #(rf/dispatch [:generate-material {:topic @topic}])}
          "Generate"]]
        [:p.small
         [:a {:href "#materials"} "← Lihat List Materi"]]])))
@@ -196,29 +192,51 @@
 ;; -----------------------------------------------------------------------------
 ;; ASSESSMENT
 ;; -----------------------------------------------------------------------------
+(def lockout-ms (* 60 60 1000))
+
 (defn assessment-page []
-  [:div.container
-   [:h2.page-title "Assessment"]
-   [:p.desc
-    "Assessment ini tuh tes menyeluruh buat ngecek kemampuan lo "
-    "dalam grammar, vocabulary, dan reading. Anggep aja ini ‘ultimate test’ "
-    "buat tau level lo sekarang."]
+  (let [assessment @(rf/subscribe [:assessment])
+        submitted? @(rf/subscribe [:assessment-submitted?])
+        last-ts    @(rf/subscribe [:last-assessment-timestamp])
+        now        (.now js/Date)]
+    [:div.container
+     [:h2.page-title "Assessment"]
 
-   [:div.btn-group
-    [:button.btn.btn-primary
-     {:on-click #(rf/dispatch [:generate-assessment])}
-     "Generate Assessment"]
+     (cond
+       ;; Lockout aktif (udah submit dan belum lewat 1 jam)
+       (and submitted? last-ts (< (- now last-ts) lockout-ms))
+       [:div
+        [:p "Lo udah ngerjain assessment, coba sejam lagi bro"]
+        [:button.btn.btn-secondary
+         {:on-click #(set! (.-hash js/location) "#assessment-result")}
+         "Lihat Hasil Assessment"]]
 
-    [:button.btn.btn-secondary
-     {:on-click #(do
-                   (rf/dispatch [:fetch-assessment])
-                   (set! (.-hash js/location) "#assessment-test"))}
-     "Mulai Tes!"]]])
+       ;; Kalau assessment udah ada tapi belum dikerjain
+       (and assessment (not submitted?))
+       [:div.btn-group
+        [:button.btn.btn-secondary
+         {:on-click #(do
+                       (rf/dispatch [:fetch-assessment])
+                       (set! (.-hash js/location) "#assessment-test"))}
+         "Mulai Tes!"]]
+
+       ;; Kalau belum ada assessment → kasih opsi generate
+       :else
+       [:div
+       [:p.desc
+        "Assessment ini tuh tes menyeluruh buat ngecek kemampuan lo "
+        "dalam grammar, vocabulary, dan reading. Anggep aja ini ‘ultimate test’ "
+        "buat tau level lo sekarang."] 
+        [:div.btn-group
+         [:button.btn.btn-primary
+          {:on-click #(rf/dispatch [:generate-assessment])}
+          "Generate Assessment"]]
+        ])]))
 
 (defn assessment-test-page []
-  (let [a @(rf/subscribe [:assessment])
-        answers (r/atom {})]
-    (fn []
+  (fn []
+    (let [a @(rf/subscribe [:assessment])
+          answers (r/atom {})] 
       [:div.container
        [:h2.page-title "Assessment Test"]
        (if (seq (:questions a)) 
@@ -241,13 +259,12 @@
           [:button.btn.btn-primary
            {:on-click #(rf/dispatch
                         [:submit-assessment
-                        (mapv (fn [i]
-                                {:selected (get @answers i nil)})
-                              (range (count (:questions a))))])}
+                         (mapv (fn [i]
+                                 {:selected (get @answers i nil)})
+                               (range (count (:questions a))))])}
            "Submit Jawaban"]]
 
          [:p "Belum ada assessment gan, generate assessment dulu gih!"])])))
-
 
 (defn assessment-result-page []
   (let [result @(rf/subscribe [:assessment])]
@@ -295,14 +312,32 @@
              [:div
               [:ul (for [t weak] ^{:key t} [:li t])]
               (if-not already?
-                [:button.btn.btn-accent
-                 {:on-click #(rf/dispatch [:generate-weak-topics])}
-                 "Generate materi buat topik lemah"]
-                [:p "Materi lemah sudah digenerate!"])]
-             [:p "Ngeri kali brok! Nggak ada topik lemah nih 🎉"])])]
+                ;; case: belum generate
+                [:div
+                 [:button.btn.btn-accent
+                  {:on-click #(rf/dispatch [:generate-weak-topics])}
+                  "Generate materi buat topik lemah"]
+                 [:div.btn-group
+                  [:button.btn.btn-secondary
+                   {:on-click #(set! (.-hash js/location) "#/")}
+                   "Balik ke halaman utama"]
+                  [:button.btn.btn-primary
+                   {:on-click #(set! (.-hash js/location) "#materials")}
+                   "Lihat List Materi lo"]]]
+                ;; case: sudah generate
+                [:div
+                 [:ul (for [t weak] ^{:key t} [:li t])]
+                 [:p "Materi lemah sudah digenerate!"]
+                 [:div.btn-group
+                  [:button.btn.btn-secondary
+                   {:on-click #(set! (.-hash js/location) "#/")}
+                   "Balik ke halaman utama"]
+                  [:button.btn.btn-primary
+                   {:on-click #(set! (.-hash js/location) "#materials")}
+                   "Lihat List Materi lo"]]])]
+             [:p "Ngeri kali brok! Nggak ada topik lemah nih, GG!"])])]
 
        [:p "Belum ada hasil assessment. Coba kerjain dulu gih tesnya!"])]))
-
 
 ;; -----------------------------------------------------------------------------
 ;; PRACTICE
@@ -313,15 +348,7 @@
       [:div.container
        [:h2.page-title "Practice Menu"]
        (if (some? material-id)
-         [:div 
-          [:p.small "Pilih Difficulty:"]
-          [:select 
-           {:value @difficulty
-            :on-change #(reset! difficulty (.. % -target -value))}
-           [:option {:value "easy"} "Easy"]
-           [:option {:value "medium"} "Medium"]
-           [:option {:value "hard"} "Hard"]]
-
+         [:div  
           [:div.btn-group
            [:button.btn.btn-primary
             {:on-click #(rf/dispatch [:generate-prosets material-id @difficulty])}
@@ -335,13 +362,19 @@
             {:on-click #(do
                           (rf/dispatch [:fetch-all-questions material-id])
                           (set! (.-hash js/location) (str "#practice-all/" material-id)))}
-            "Tes Semua Soal Materi Ini"]]]
+            "Tes Semua Soal Materi Ini"]]
+          [:p.small "Pilih Difficulty:"]
+           [:select
+           {:value @difficulty
+            :on-change #(reset! difficulty (.. % -target -value))}
+           [:option {:value "easy"} "Easy"]
+           [:option {:value "medium"} "Medium"]
+           [:option {:value "hard"} "Hard"]]]
          [:div.panel
           [:p.small "Material-id lom ada."]
           [:button.btn.btn-primary
            {:on-click #(rf/dispatch [:fetch-materials])}
            "Refresh daftar materi"]])])))
-
 
 (defn bank-soal-page []
   (let [ps @(rf/subscribe [:prosets])]
@@ -520,8 +553,7 @@
         params @(rf/subscribe [:page-params])]
     [:div
      (case page
-       :register   [register-page]
-       :login      [login-page]
+       :auth [auth-page]
        :home       [home-page]
        :materials  [materials-page]
        :material   [material-page]
