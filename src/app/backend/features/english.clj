@@ -3,7 +3,7 @@
             [app.backend.utils :as u]))
 
 ;; helper: build OpenAI messages
-(defn english-generator-messages [topic difficulty mode]
+(defn english-generator-messages [topic mode]
   (case mode
     "material"
     [{:role "system"
@@ -37,43 +37,8 @@ Rules:
 - Examples: exactly 1 positive and 1 negative.
 - Tone: empathetic, chill, supportive, but knowledgeable. Like a smart bestie who helps you level up."}
      {:role "user"
-      :content (str "Generate English learning material about: " topic
-                    " at difficulty: " difficulty)}]
-
-    "proset"
-    [{:role "system"
-      :content "You are the same empathetic tutor who created the learning material.
-    Now, you will generate PRACTICE QUESTIONS.
-    Important: the style depends on the field.
+      :content (str "Generate English learning material about: " topic)}]
     
-    Rules:
-    - The 'problem' text must be neutral, clear, like a normal test question. No jokes or casual tone.
-    - The 'choices' must be plain text only (no A./B./C./D., no numbering).
-    - The 'explanation' text should use the tutor tone 
-                (empathetic, chill, informal with lo gue jaksel vibes, and analogies if necessary).
-    - Provide exactly 10 problems.
-    - Output must be STRICT JSON:
-    {
-      \"material-id\": string,
-      \"difficulty\": string,
-      \"problems\": [
-        {
-          \"number\": integer,
-          \"problem\": string,   // neutral style
-          \"choices\": [string, string, string, string], 
-          \"answer-idx\": integer, 
-          \"explanation\": {
-            \"en\": string,  // tutor tone
-            \"id\": string   // tutor tone
-          }
-        }
-      ]
-    }"}
-     {:role "user"
-      :content (str "Create 10 practice problems for topic: " topic
-                    " at difficulty: " difficulty)}]
-
-
     "assessment"
     [{:role "system"
       :content "You are an evaluator giving the ultimate English test.
@@ -102,6 +67,38 @@ Rules:
       :content (str "Generate a full English assessment (ultimate test) for user id: "
                     topic)}]))
 
+(defn english-prosets-generator [topic difficulty]
+  [{:role "system"
+    :content "You are the same empathetic tutor who created the learning material.
+      Now, you will generate PRACTICE QUESTIONS.
+      Important: the style depends on the field.
+      
+      Rules:
+      - The 'problem' text must be neutral, clear, like a normal test question. No jokes or casual tone.
+      - The 'choices' must be plain text only (no A./B./C./D., no numbering).
+      - The 'explanation' text should use the tutor tone 
+                  (empathetic, chill, informal with lo gue jaksel vibes, and analogies if necessary).
+      - Provide exactly 10 problems.
+      - Output must be STRICT JSON:
+      {
+        \"material-id\": string,
+        \"difficulty\": string,
+        \"problems\": [
+          {
+            \"number\": integer,
+            \"problem\": string,   // neutral style
+            \"choices\": [string, string, string, string], 
+            \"answer-idx\": integer, 
+            \"explanation\": {
+              \"en\": string,  // tutor tone
+              \"id\": string   // tutor tone
+            }
+          }
+        ]
+      }"}
+   {:role "user"
+    :content (str "Create 10 practice problems for topic: " topic
+                  " at difficulty: " difficulty)}])
 
 ;; ------------------------
 ;; PROSETS
@@ -111,7 +108,7 @@ Rules:
         topic (:topic material)
         chosen-diff (or difficulty (:difficulty material) "medium")
         existing-count (mc/count db "prosets" {:material-id material-id})
-        messages (english-generator-messages topic chosen-diff "proset")
+        messages (english-prosets-generator topic chosen-diff)
         gen-fn (:openai openai-comp)
         resp (gen-fn {:model "gpt-5-mini"
                       :messages messages
@@ -122,7 +119,7 @@ Rules:
                 :material-id material-id
                 :topic      topic
                 :difficulty chosen-diff
-                :bank-code  (str "bank-soal-" (inc existing-count))
+                :bank-code  (str "bank-soal-" (inc existing-count) "-" topic)
                 :problems   problems
                 :created-at (u/now)}]
     (mc/insert-and-return db "prosets" proset)
@@ -149,24 +146,22 @@ Rules:
              :total total}
      :problems (vec scored)}))
 
-
 ;; ------------------------
 ;; MATERIALS
 ;; ------------------------
-(defn generate-material! [db openai-comp user-id topic difficulty]
+(defn generate-material! [db openai-comp user-id topic]
   (let [gen-fn   (:openai openai-comp)
-        messages (english-generator-messages topic difficulty "material")
+        messages (english-generator-messages topic "material")
         resp     (gen-fn {:model "gpt-5-mini"
                           :messages messages
                           :temperature 1})
         content  (u/parse-json (:result resp))
         doc      (merge {:_id (u/uuid)
                          :user-id user-id
-                         :topic topic
-                         :difficulty difficulty}
+                         :topic topic}
                         {:content content})
         inserted (mc/insert-and-return db "materials" doc)]
-    (generate-proset! db openai-comp (:_id inserted) difficulty)
+    (generate-proset! db openai-comp (:_id inserted) "easy")
     (u/info doc)
     inserted))
 
@@ -179,25 +174,38 @@ Rules:
 ;; ------------------------
 ;; ASSESSMENTS
 ;; ------------------------
+(def lockout-ms (* 60 60 1000))
+
+(defn can-generate-assessment? [a]
+  (let [now (System/currentTimeMillis)]
+    (or (nil? a)
+        (not (:submitted? a))
+        (> (- now (.getTime (:submitted-at a))) lockout-ms))))
+
 (defn generate-assessment! [db openai-comp user-id]
-  (let [gen-fn   (:openai openai-comp)
-        messages (english-generator-messages
-                  "grammar, vocabulary, reading"
-                  "mixed"
-                  "assessment")
-        resp     (gen-fn {:model "gpt-5-mini"
-                          :messages messages
-                          :temperature 1})
-        content  (u/parse-json (:result resp))
-        doc {:_id (u/uuid)
-             :user-id user-id
-             :questions (:questions content)
-             :topics-covered ["grammar" "vocabulary" "reading"]
-             :weak-topics []
-             :created-at (u/now)}]
-    (mc/insert-and-return db "assessments" doc)
-    (u/info doc)
-    doc))
+  (let [a (mc/find-one-as-map db "assessments" {:user-id user-id})]
+    (if (can-generate-assessment? a)
+      (do
+        (mc/remove db "assessments" {:user-id user-id})
+        (let [gen-fn   (:openai openai-comp)
+              messages (english-generator-messages
+                        "grammar, vocabulary, reading"
+                        "assessment")
+              resp     (gen-fn {:model "gpt-5-mini"
+                                :messages messages
+                                :temperature 1})
+              content  (u/parse-json (:result resp))
+              doc {:_id (u/uuid)
+                   :user-id user-id
+                   :questions (:questions content)
+                   :topics-covered ["grammar" "vocabulary" "reading"]
+                   :weak-topics []
+                   :created-at (u/now)
+                   :submitted? false}]
+          (mc/insert-and-return db "assessments" doc)
+          (u/info doc)
+          doc))
+      (assoc a :lockout true))))
 
 (defn submit-assessment! [db _ assessment-id answers]
   (let [assessment (mc/find-one-as-map db "assessments" {:_id assessment-id})
@@ -221,13 +229,11 @@ Rules:
                          vec)
         result {:questions scored
                 :score {:correct correct-count :total total}
-                :weak-topics weak-topics}]
+                :weak-topics weak-topics
+                :submitted? true
+                :submitted-at (System/currentTimeMillis)}]
     (mc/update db "assessments"
                {:_id assessment-id}
                {"$set" result})
-    (assoc assessment
-           :questions scored
-           :score {:correct correct-count :total total}
-           :weak-topics weak-topics)))
-
+    (merge assessment result)))
 
