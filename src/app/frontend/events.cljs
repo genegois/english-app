@@ -11,16 +11,22 @@
 (rf/reg-event-fx
  :init
  (fn [_ _]
-   (let [saved (js/localStorage.getItem "user")]
-     (if saved
-       (let [user (js->clj (js/JSON.parse saved) :keywordize-keys true)
+   (let [saved-user (js/localStorage.getItem "user")
+         saved-assessment (js/localStorage.getItem "assessment")]
+     (if saved-user
+       (let [user (js->clj (js/JSON.parse saved-user) :keywordize-keys true)
              id   (or (:id user) (:_id user) (:email user))
-             user (assoc user :id id)]
-         {:db {:user user
-               :page :home}
-          :dispatch [:fetch-materials]})
-       {:db {:user nil :page :login}}))))
-
+             user (assoc user :id id)
+             ;; coba restore assessment dari localStorage juga
+             assess (when saved-assessment
+                      (js->clj (js/JSON.parse saved-assessment) :keywordize-keys true))]
+         {:db (cond-> {:user user
+                       :page :home}
+                assess (assoc :assessment assess))
+          ;; tetep fetch biar fresh dari backend
+          :dispatch-n [[:fetch-materials]
+                       [:fetch-assessment-silent]]})
+       {:db {:user nil :page :auth}}))))
 
 (rf/reg-event-db
  :set-user
@@ -53,7 +59,6 @@
                       (get-in resp [:response :message])
                       "Unknown error")))
    {:dispatch [:set-error {:ctx ctx :resp resp}]}))
-
 
 (rf/reg-event-db
  :set-error
@@ -105,8 +110,8 @@
      (js/localStorage.setItem "user" (js/JSON.stringify (clj->js user)))
      (js/alert (str "Login sukses, alo " (or (:username user) (:email user)) "!")) 
      {:db (assoc db :user user :page :home)
-      :dispatch [:fetch-materials]})))
-
+      :dispatch-n [[:fetch-materials]
+                   [:fetch-assessment-silent]]})))
 
 ;; ------------------------------------------------------------------
 ;; Materials
@@ -140,11 +145,11 @@
                  :on-success [:set-current-material]
                  :on-failure [:api-failure "fetch-material"]}}))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  :set-current-material
- (fn [db [_ m]]
-   (rf/dispatch [:fetch-prosets (:_id m)])
-   (assoc db :current-material m :page :material)))
+ (fn [{:keys [db]} [_ m]]
+   {:db (assoc db :current-material m :page :material)
+    :dispatch [:fetch-prosets (:_id m)]}))
 
 (rf/reg-event-fx
  :generate-material
@@ -185,17 +190,15 @@
  :fetch-proset-by-id
  (fn [_ [_ proset-id]]
    {:http-xhrio {:method :get
-                 :uri (api/url (str "/prosets/by-id/" proset-id)) ;; ⬅ fix
+                 :uri (api/url (str "/prosets/by-id/" proset-id))
                  :response-format (ajax/json-response-format {:keywords? true})
                  :on-success [:set-current-proset]
                  :on-failure [:api-failure "fetch-proset-by-id"]}}))
-
 
 (rf/reg-event-db
  :set-current-proset
  (fn [db [_ proset]]
    (assoc db :current-proset proset :page :practice-proset)))
-
 
 (rf/reg-event-fx
  :generate-prosets
@@ -207,7 +210,6 @@
                  :response-format (ajax/json-response-format {:keywords? true})
                  :on-success [:generate-prosets-success]
                  :on-failure [:api-failure "generate-prosets"]}}))
-
 
 (rf/reg-event-fx
  :generate-prosets-success
@@ -239,16 +241,6 @@
                  :response-format (ajax/json-response-format {:keywords? true})
                  :on-success [:submit-proset-success]
                  :on-failure [:api-failure "submit-all-questions"]}}))
-
-
-(rf/reg-event-fx
- :fetch-proset
- (fn [_ [_ proset-id]]
-   {:http-xhrio {:method :get
-                 :uri (api/url (str "/prosets/by-id/" proset-id)) ;; ⬅ ganti
-                 :response-format (ajax/json-response-format {:keywords? true})
-                 :on-success [:set-current-proset]
-                 :on-failure [:api-failure "fetch-proset"]}}))
 
 (rf/reg-event-db
  :submit-proset-success
@@ -328,9 +320,6 @@
                    :on-success [:submit-proset-success]
                    :on-failure [:api-failure "submit-user-all-questions"]}})))
 
-
-
-
 ;; ------------------------------------------------------------------
 ;; Assessment
 ;; ------------------------------------------------------------------
@@ -361,6 +350,20 @@
                    :on-success      [:set-assessment]
                    :on-failure      [:api-failure "fetch-assessment"]}})))
 
+(rf/reg-event-fx
+ :fetch-assessment-silent
+ (fn [{:keys [db]} _]
+   (let [user-id (get-in db [:user :id])]
+     {:http-xhrio {:method          :get
+                   :uri             (api/url (str "/assessments/" user-id))
+                   :response-format (ajax/json-response-format {:keywords? true})
+                   :on-success      [:set-assessment]
+                   :on-failure      [:noop]}})))
+
+(rf/reg-event-db
+ :noop
+ (fn [db _] db))
+
 (rf/reg-event-db
  :set-assessment
  (fn [db [_ a]]
@@ -383,11 +386,18 @@
 (rf/reg-event-db
  :submit-assessment-success
  (fn [db [_ result]]
-   (js/alert "Assessment disubmit! Hasil evaluasi siap.")
-   (-> db
-       (assoc :assessment result
-              :assessment-started? false
-              :page :assessment-result))))
+   (js/alert "Assessment udah disubmit! Hasil lo udah bisa diliat nih.")
+   (let [ts (.now js/Date)
+         final (-> result
+                   (assoc :submitted? true)
+                   (assoc :submitted-at ts))]
+     ;; simpen angka ke localStorage
+     (js/localStorage.setItem "assessment"
+                              (js/JSON.stringify (clj->js final)))
+     (-> db
+         (assoc :assessment final
+                :assessment-started? false
+                :page :assessment-result)))))
 
 (rf/reg-event-fx
  :generate-weak-topics
@@ -404,7 +414,6 @@
                      :on-failure [:api-failure "generate-weak-topics"]}}
        {:dispatch [:notify "Nggak ada topik lemah buat digenerate"]}))))
 
-
 (rf/reg-event-fx
  :generate-weak-topics-success
  (fn [{:keys [db]} [_ resp]]
@@ -417,4 +426,3 @@
  :start-assessment
  (fn [db _]
    (assoc db :assessment-started? true)))
-
