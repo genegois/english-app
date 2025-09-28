@@ -15,8 +15,6 @@
   - User bisa brute-force [generate]
   
   - Per-frontend-an: Randomized answers and choiches (maybe backend) and undo answers.
-  
-  - User bisa ngakalin assesment, dapet kunjaw abis itu tes ulang (idk why u do this, but anyway)
 
 [big]
 - add speech and listening practice 
@@ -36,6 +34,7 @@ Public License, v. 2.0 are satisfied: GNU General Public License as published by
 the Free Software Foundation, either version 2 of the License, or (at your
 option) any later version, with the GNU Classpath Exception which is available
 at https://www.gnu.org/software/classpath/license.html.
+
 
 
 
