@@ -1,6 +1,167 @@
 (ns app.backend.features.english
   (:require [monger.collection :as mc]
-            [app.backend.utils :as u]))
+            [app.backend.utils :as u]
+            [clojure.string :as str]))
+
+;; Schema and tools
+(def topic-schema
+  {:type "json_schema"
+   :json_schema {:name "topic_extraction"
+                 :strict true
+                 :schema {:type "object"
+                          :properties {:topic {:type "string"}}
+                          :required ["topic"]
+                          :additionalProperties false}}})
+
+(def material-schema
+  {:type "json_schema"
+   :json_schema
+   {:name "learning_material"
+    :strict true
+    :schema
+    {:type "object"
+     :properties
+     {:topic {:type "string"}
+
+      :definition {:type "object"
+                   :properties {:en {:type "string"}
+                                :id {:type "string"}}
+                   :required ["en" "id"]
+                   :additionalProperties false}
+
+      :usage {:type "object"
+              :properties {:en {:type "string"}
+                           :id {:type "string"}}
+              :required ["en" "id"]
+              :additionalProperties false}
+
+      :importance {:type "object"
+                   :properties {:en {:type "string"}
+                                :id {:type "string"}}
+                   :required ["en" "id"]
+                   :additionalProperties false}
+
+      :common-mistakes {:type "object"
+                        :properties {:en {:type "array"
+                                          :items {:type "string"}}
+                                     :id {:type "array"
+                                          :items {:type "string"}}}
+                        :required ["en" "id"]
+                        :additionalProperties false}
+
+      :examples {:type "object"
+                 :properties {:positive {:type "object"
+                                         :properties {:en {:type "string"}
+                                                      :id {:type "string"}}
+                                         :required ["en" "id"]
+                                         :additionalProperties false}
+                              :negative {:type "object"
+                                         :properties {:en {:type "string"}
+                                                      :id {:type "string"}}
+                                         :required ["en" "id"]
+                                         :additionalProperties false}}
+                 :required ["positive" "negative"]
+                 :additionalProperties false}
+
+      :tips {:type "object"
+             :properties {:en {:type "string"}
+                          :id {:type "string"}}
+             :required ["en" "id"]
+             :additionalProperties false}}
+
+     :required ["topic"
+                "definition"
+                "usage"
+                "importance"
+                "common-mistakes"
+                "examples"
+                "tips"]
+     :additionalProperties false}}})
+
+
+(def proset-schema
+  {:type "json_schema"
+   :json_schema
+   {:name "practice_proset"
+    :strict true
+    :schema
+    {:type "object"
+     :properties
+     {:material-id {:type "string"}
+      :difficulty {:type "string"}
+
+      :problems {:type "array"
+                 :items {:type "object"
+                         :properties
+                         {:number {:type "integer"}
+                          :problem {:type "string"}
+                          :choices {:type "array"
+                                    :items {:type "string"}
+                                    :minItems 4
+                                    :maxItems 4}
+                          :answer-idx {:type "integer"}
+                          :explanation {:type "object"
+                                        :properties {:en {:type "string"}
+                                                     :id {:type "string"}}
+                                        :required ["en" "id"]
+                                        :additionalProperties false}}
+                         :required ["number"
+                                    "problem"
+                                    "choices"
+                                    "answer-idx"
+                                    "explanation"]
+                         :additionalProperties false}}}
+
+     :required ["material-id" "difficulty" "problems"]
+     :additionalProperties false}}})
+
+(def assessment-schema
+  {:type "json_schema"
+   :json_schema
+   {:name "assessment_schema"
+    :strict true
+    :schema
+    {:type "object"
+     :properties
+     {:questions {:type "array"
+                  :items {:type "object"
+                          :properties
+                          {:number {:type "integer"}
+                           :problem {:type "string"}
+                           :choices {:type "array"
+                                     :items {:type "string"}
+                                     :minItems 4
+                                     :maxItems 4}
+                           :answer-idx {:type "integer"}
+                           :topic {:type "string"}
+                           :explanation {:type "object"
+                                         :properties {:en {:type "string"}
+                                                      :id {:type "string"}}
+                                         :required ["en" "id"]
+                                         :additionalProperties false}}
+                          :required ["number"
+                                     "problem"
+                                     "choices"
+                                     "answer-idx"
+                                     "topic"
+                                     "explanation"]
+                          :additionalProperties false}}}
+     :required ["questions"]
+     :additionalProperties false}}})
+
+
+(defn extract-topic! [openai-comp user-input]
+  (let [gen-fn (:openai openai-comp)
+        messages [{:role "system"
+                   :content "You are a helper that extracts the learning topic from a messy user request. 
+Return STRICT JSON like: {\"topic\": string}."}
+                  {:role "user"
+                   :content (str "Extract topic from: " user-input)}]
+        resp (gen-fn {:model "gpt-5-mini"
+                      :messages messages
+                      :temperature 1
+                      :json-schema topic-schema})]
+    (u/parse-json (:result resp))))
 
 ;; helper: build OpenAI messages
 (defn english-generator-messages [topic mode]
@@ -103,6 +264,20 @@ Rules:
 ;; ------------------------
 ;; PROSETS
 ;; ------------------------
+(defn shuffle-questions [problems]
+  (vec
+   (map-indexed
+    (fn [i p]
+      (let [choices (:choices p)
+            shuffled (shuffle choices)
+            correct-choice (nth choices (:answer-idx p))
+            new-idx (.indexOf shuffled correct-choice)]
+        (assoc p
+               :number (inc i)
+               :choices shuffled
+               :answer-idx new-idx)))
+    (shuffle problems))))
+
 (defn generate-proset! [db openai-comp material-id difficulty]
   (let [material (mc/find-one-as-map db "materials" {:_id material-id})
         topic (:topic material)
@@ -112,23 +287,50 @@ Rules:
         gen-fn (:openai openai-comp)
         resp (gen-fn {:model "gpt-5-mini"
                       :messages messages
-                      :temperature 1})
+                      :temperature 1
+                      :json-schema proset-schema})
         content (u/parse-json (:result resp))
         problems (:problems content)
-        proset {:_id        (u/uuid)
+        proset {:_id         (u/uuid)
                 :material-id material-id
-                :topic      topic
-                :difficulty chosen-diff
-                :bank-code  (str "bank-soal-" (inc existing-count) "-" topic)
-                :problems   problems
-                :created-at (u/now)}]
+                :topic       topic
+                :difficulty  chosen-diff
+                :bank-code   (str "bank-soal-" (inc existing-count) "-" topic)
+                :problems    problems
+                :created-at  (u/now)}]
     (mc/insert-and-return db "prosets" proset)
     (u/info proset)
     proset))
 
+(defn get-problems-by-material-id
+  "Ngambil semua problem dari semua prosets yang punya material-id tertentu.
+   Return-nya list of problems (gabungan semua problems)."
+  [db material-id]
+  (let [prosets (mc/find-maps db "prosets" {:material-id material-id})]
+    (mapcat :problems prosets)))
 
-(defn fetch-prosets [db material-id]
-  (mc/find-maps db "prosets" {:material-id material-id}))
+(defn generate-custom-proset!
+  "Generate custom proset gabungan dari beberapa material.
+   Tidak memanggil OpenAI, hanya menggabungkan problem dari materials terpilih."
+  [db user-id material-ids title]
+  (let [materials (mc/find-maps db "materials" {:_id {"$in" material-ids}})
+        existing-count (mc/count db "prosets-custom" {:material-ids material-ids})
+        problems (mapcat #(get-problems-by-material-id db (:_id %)) materials)
+        topic (if (seq title)
+                title
+                (str "Latihan Gabungan: " (str/join ", " (map :topic materials))))
+        custom-proset {:_id         (u/uuid)
+                       :user-id user-id
+                       :topic       topic
+                       :difficulty  "mixed"
+                       :bank-code   (str "mix-proset-" (inc existing-count))
+                       :material-ids material-ids
+                       :problems    problems
+                       :created-at  (u/now)}]
+    (mc/insert-and-return db "prosets-custom" custom-proset)
+    (u/info custom-proset)
+    custom-proset))
+
 
 (defn grade-problems [problems answers]
   (let [scored (map-indexed
@@ -149,17 +351,20 @@ Rules:
 ;; ------------------------
 ;; MATERIALS
 ;; ------------------------
-(defn generate-material! [db openai-comp user-id topic]
-  (let [gen-fn   (:openai openai-comp)
+(defn generate-material! [db openai-comp user-id raw-input]
+  (let [extracted (extract-topic! openai-comp raw-input)
+        topic (:topic extracted)
+        gen-fn   (:openai openai-comp)
         messages (english-generator-messages topic "material")
         resp     (gen-fn {:model "gpt-5-mini"
                           :messages messages
-                          :temperature 1})
+                          :temperature 1
+                          :json-schema material-schema})
         content  (u/parse-json (:result resp))
-        doc      (merge {:_id (u/uuid)
-                         :user-id user-id
-                         :topic topic}
-                        {:content content})
+        doc       {:_id (u/uuid)
+                   :user-id user-id
+                   :topic topic
+                   :content content} 
         inserted (mc/insert-and-return db "materials" doc)]
     (generate-proset! db openai-comp (:_id inserted) "easy")
     (u/info doc)
@@ -180,7 +385,7 @@ Rules:
   (let [now (System/currentTimeMillis)]
     (or (nil? a)
         (not (:submitted? a))
-        (> (- now (.getTime (:submitted-at a))) lockout-ms))))
+        (> (- now (:submitted-at a)) lockout-ms))))
 
 (defn generate-assessment! [db openai-comp user-id]
   (let [a (mc/find-one-as-map db "assessments" {:user-id user-id})]
@@ -193,7 +398,8 @@ Rules:
                         "assessment")
               resp     (gen-fn {:model "gpt-5-mini"
                                 :messages messages
-                                :temperature 1})
+                                :temperature 1
+                                :json-schema assessment-schema})
               content  (u/parse-json (:result resp))
               doc {:_id (u/uuid)
                    :user-id user-id
@@ -236,4 +442,3 @@ Rules:
                {:_id assessment-id}
                {"$set" result})
     (merge assessment result)))
-
