@@ -1,12 +1,17 @@
 (ns app.frontend.subs
   (:require [re-frame.core :as rf]))
-
 (rf/reg-sub :user (fn [db _] (:user db)))
 (rf/reg-sub :page (fn [db _] (:page db)))
 (rf/reg-sub :materials (fn [db _] (:materials db)))
 (rf/reg-sub :current-material (fn [db _] (:current-material db)))
 (rf/reg-sub :assessment (fn [db _] (:assessment db)))
 (rf/reg-sub :prosets (fn [db _] (:prosets db)))
+(rf/reg-sub :custom-proset (fn [db _] (:custom-proset db)))
+(rf/reg-sub :custom-prosets (fn [db _] (:custom-prosets db)))
+(rf/reg-sub :custom-current-proset (fn [db _] (:custom-current-proset db)))
+(rf/reg-sub :loading-custom-prosets? (fn [db _] (:loading-custom-prosets? db)))
+(rf/reg-sub :user-custom-prosets (fn [db _] (:user-custom-prosets db)))
+(rf/reg-sub :last-custom-proset-result (fn [db _] (:last-custom-proset-result db)))
 (rf/reg-sub :current-proset (fn [db _] (:current-proset db)))
 (rf/reg-sub :all-questions (fn [db _] (:all-questions db)))
 (rf/reg-sub :user-all-questions (fn [db _] (:user-all-questions db)))
