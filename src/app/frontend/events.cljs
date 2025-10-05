@@ -172,19 +172,100 @@
 ;; ------------------------------------------------------------------
 ;; Prosets
 ;; ------------------------------------------------------------------
+
+;; --- Generate Custom Proset ---
 (rf/reg-event-fx
- :fetch-prosets
- (fn [_ [_ material-id]]
-   {:http-xhrio {:method :get
-                 :uri (api/url (str "/prosets/material/" material-id "/list"))
-                 :response-format (ajax/json-response-format {:keywords? true})
-                 :on-success [:set-prosets]
-                 :on-failure [:api-failure "fetch-prosets"]}}))
+ :generate-custom-proset
+ (fn [{:keys [db]} [_ material-ids title]]
+   (let [user-id (or (get-in db [:user :id])
+                     (get-in db [:user :_id])
+                     (get-in db [:user :email]))]
+     (if (nil? user-id)
+       {:db db
+        :dispatch [:api-failure "generate-custom-proset (missing user-id)"]}
+       {:http-xhrio {:method          :post
+                     :uri             (api/url "/prosets/custom/generate")
+                     :params          {:user-id user-id
+                                       :material-ids material-ids
+                                       :title title}
+                     :format          (ajax/json-request-format)
+                     :response-format (ajax/json-response-format {:keywords? true})
+                     :on-success      [:set-custom-proset]
+                     :on-failure      [:api-failure "generate-custom-proset"]}}))))
 
 (rf/reg-event-db
- :set-prosets
- (fn [db [_ ps]]
-   (assoc db :prosets (vec ps))))
+ :set-custom-proset
+ (fn [db [_ resp]]
+   (assoc db :custom-proset resp)))
+
+
+;; --- Fetch List Custom Prosets ---
+(rf/reg-event-fx
+ :fetch-user-custom-prosets
+ (fn [{:keys [db]} [_ user-id]]
+   (let [uid (or user-id
+                 (get-in db [:user :id])
+                 (get-in db [:user :_id])
+                 (get-in db [:user :email]))]
+     (if (nil? uid)
+       {:db db
+        :dispatch [:api-failure "fetch-user-custom-prosets (missing user-id)"]}
+       {:db (assoc db :loading-custom-prosets? true)
+        :http-xhrio {:method          :get
+                     :uri             (api/url (str "/prosets/custom/user/" uid))
+                     :response-format (ajax/json-response-format {:keywords? true})
+                     :on-success      [:fetch-user-custom-prosets-success]
+                     :on-failure      [:fetch-user-custom-prosets-failure]}}))))
+
+(rf/reg-event-db
+ :fetch-user-custom-prosets-success
+ (fn [db [_ res]]
+   (-> db
+       (assoc :loading-custom-prosets? false)
+       (assoc :user-custom-prosets res))))
+
+(rf/reg-event-db
+ :fetch-user-custom-prosets-failure
+ (fn [db [_ err]]
+   (-> db
+       (assoc :loading-custom-prosets? false)
+       (assoc :user-custom-prosets-error err))))
+
+
+;; --- Fetch Custom Proset by ID ---
+(rf/reg-event-fx
+ :fetch-custom-proset-by-id
+ (fn [_ [_ custom-id]]
+   {:http-xhrio {:method          :get
+                 :uri             (api/url (str "/prosets/custom/id/" custom-id))
+                 :response-format (ajax/json-response-format {:keywords? true})
+                 :on-success      [:set-custom-current-proset]
+                 :on-failure      [:api-failure "fetch-custom-proset-by-id"]}}))
+
+(rf/reg-event-db
+ :set-custom-current-proset
+ (fn [db [_ res]]
+   (assoc db :custom-current-proset res)))
+
+
+;; --- Submit Jawaban dari Custom Proset ---
+(rf/reg-event-fx
+ :submit-custom-proset
+ (fn [{:keys [db]} [_ custom-id answers]]
+   (let [problems (:problems (:custom-current-proset db))]
+     (if (nil? problems)
+       {:db db
+        :dispatch [:api-failure "submit-custom-proset (no problems in state)"]}
+       {:db (assoc db :submitting-custom-proset? true)
+        :http-xhrio {:method          :post
+                     :uri             (api/url (str "/prosets/custom/id/" custom-id "/submit"))
+                     :params          {:answers answers :problems problems}
+                     :format          (ajax/json-request-format)
+                     :response-format (ajax/json-response-format {:keywords? true})
+                     :on-success      [:submit-proset-success]
+                     :on-failure      [:api-failure "submit-custom-proset"]}}))))
+
+
 
 (rf/reg-event-fx
  :fetch-proset-by-id
@@ -198,7 +279,7 @@
 (rf/reg-event-db
  :set-current-proset
  (fn [db [_ proset]]
-   (assoc db :current-proset proset :page :practice-proset)))
+   (assoc db :current-proset proset :current-problems (:problems proset) :page :practice-proset)))
 
 (rf/reg-event-fx
  :generate-prosets
@@ -221,26 +302,44 @@
      {:dispatch [:fetch-prosets mid]})))
 
 (rf/reg-event-fx
- :submit-proset
- (fn [_ [_ proset-id answers]]
-   {:http-xhrio {:method :post
-                 :uri (api/url (str "/prosets/by-id/" proset-id "/submit")) ;; ⬅ ganti
-                 :params {:answers answers}
-                 :format (ajax/json-request-format)
+ :fetch-prosets
+ (fn [_ [_ material-id]]
+   {:http-xhrio {:method :get
+                 :uri (api/url (str "/prosets/material/" material-id "/list"))
                  :response-format (ajax/json-response-format {:keywords? true})
-                 :on-success [:submit-proset-success]
-                 :on-failure [:api-failure "submit-proset"]}}))
+                 :on-success [:set-prosets]
+                 :on-failure [:api-failure "fetch-prosets"]}}))
+
+(rf/reg-event-db
+ :set-prosets
+ (fn [db [_ ps]]
+   (assoc db :prosets (vec ps))))
+
+(rf/reg-event-fx
+ :submit-proset
+ (fn [{:keys [db]} [_ proset-id answers]]
+   (let [problems (:current-problems db)]
+     {:http-xhrio {:method :post
+                   :uri (api/url (str "/prosets/by-id/" proset-id "/submit")) 
+                   :params {:answers answers
+                            :problems problems}
+                   :format (ajax/json-request-format)
+                   :response-format (ajax/json-response-format {:keywords? true})
+                   :on-success [:submit-proset-success]
+                   :on-failure [:api-failure "submit-proset"]}})))
 
 (rf/reg-event-fx
  :submit-all-questions
- (fn [_ [_ material-id answers]]
-   {:http-xhrio {:method :post
-                 :uri (api/url (str "/prosets/material/" material-id "/submit-all"))
-                 :params {:answers answers}
-                 :format (ajax/json-request-format)
-                 :response-format (ajax/json-response-format {:keywords? true})
-                 :on-success [:submit-proset-success]
-                 :on-failure [:api-failure "submit-all-questions"]}}))
+ (fn [{:keys [db]} [_ material-id answers]]
+   (let [problems (:problems (:all-questions db))]
+     {:http-xhrio {:method :post
+                   :uri (api/url (str "/prosets/material/" material-id "/submit-all"))
+                   :params {:answers answers
+                            :problems problems}
+                   :format (ajax/json-request-format)
+                   :response-format (ajax/json-response-format {:keywords? true})
+                   :on-success [:submit-proset-success]
+                   :on-failure [:api-failure "submit-all-questions"]}})))
 
 (rf/reg-event-db
  :submit-proset-success
@@ -252,21 +351,6 @@
        (assoc :last-proset-result resp)
        (assoc :page :practice-result))))
 
-(rf/reg-event-fx
- :fetch-last-proset
- (fn [{:keys [db]} _]
-   (let [uid (get-in db [:user :id])]
-     {:http-xhrio {:method :get
-                   :uri (api/url (str "/prosets/user/" uid "/last"))
-                   :response-format (ajax/json-response-format {:keywords? true})
-                   :on-success [:set-last-proset-result]
-                   :on-failure [:api-failure "fetch-last-proset"]}})))
-
-(rf/reg-event-db
- :set-last-proset-result
- (fn [db [_ resp]]
-   (assoc db :last-proset-result resp)))
-
 
 (rf/reg-event-fx
  :fetch-all-questions
@@ -276,6 +360,11 @@
                  :response-format (ajax/json-response-format {:keywords? true})
                  :on-success [:set-all-questions]
                  :on-failure [:api-failure "fetch-all-questions"]}}))
+
+(rf/reg-event-db
+ :set-all-questions
+ (fn [db [_ resp]]
+   (assoc db :all-questions resp)))
 
 (rf/reg-event-fx
  :open-bank-soal
@@ -287,11 +376,6 @@
  :goto-bank-soal
  (fn [db _]
    (assoc db :page :bank-soal)))
-
-(rf/reg-event-db
- :set-all-questions
- (fn [db [_ resp]]
-   (assoc db :all-questions resp)))
 
 (rf/reg-event-fx
  :fetch-user-all-questions
@@ -311,10 +395,12 @@
 (rf/reg-event-fx
  :submit-user-all-questions
  (fn [{:keys [db]} [_ answers]]
-   (let [uid (get-in db [:user :id])]
+   (let [uid (get-in db [:user :id])
+         problems (:problems (:user-all-questions db))]
      {:http-xhrio {:method :post
                    :uri (api/url (str "/prosets/user/" uid "/all-questions/submit"))
-                   :params {:answers answers}
+                   :params {:answers answers
+                            :problems problems}
                    :format (ajax/json-request-format)
                    :response-format (ajax/json-response-format {:keywords? true})
                    :on-success [:submit-proset-success]
