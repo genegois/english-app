@@ -20,12 +20,15 @@
           (str/starts-with? v "practice-all/") [:practice-all (subs v 13)]
            (= v "practice-all-user")             [:practice-all-user]
           (str/starts-with? v "practice-test/") [:practice-test (subs v 14)]
-          (str/starts-with? v "practice/") [:practice (subs v 9)]
+          (str/starts-with? v "practice/") [:practice (subs v 9)] 
+          (str/starts-with? v "practice-custom/")  [:practice-custom (subs v 17)]
+          (str/starts-with? v "practice-proset/")  [:practice-proset (subs v 16)]
           (= v "generate")  [:generate]
           (= v "materials") [:materials]
           (= v "assessment") [:assessment]
           (= v "assessment-test") [:assessment-test]
-          (= v "assessment-result") [:assessment-result] 
+          (= v "assessment-result") [:assessment-result]
+          (= v "custom-proset") [:custom-prosets]
           (= v "auth")     [:auth]
           :else             [:home])))))
 
