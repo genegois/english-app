@@ -39,8 +39,11 @@
      ["/generate"
       {:post (fn [req]
                (let [{:keys [user-id topic]} (:body req)]
-                 {:status 200
-                  :body (english/generate-material! (:db db) openai user-id topic)}))}]
+                 (if (empty? topic)
+                   {:status 400
+                    :body {:status "error" :message "Isi dulu topicnya boss"}}
+                   {:status 200
+                    :body (english/generate-material! (:db db) openai user-id topic)})))}]
      ["/user/:user-id"
       {:get (fn [req]
               (let [uid (get-in req [:path-params :user-id])]
@@ -72,11 +75,6 @@
                   :body (english/generate-proset! (:db db) openai mid difficulty)}))}]
      ["/material/:material-id/list"
       {:get (fn [req]
-              (let [mid (get-in req [:path-params :material-id])]
-                {:status 200
-                 :body (english/fetch-prosets (:db db) mid)}))}]
-     ["/material/:material-id/bank"
-      {:get (fn [req]
               (let [mid (get-in req [:path-params :material-id])
                     prosets (mc/find-maps (:db db) "prosets" {:material-id mid})]
                 {:status 200 :body prosets}))}]
@@ -84,41 +82,29 @@
       {:get (fn [req]
               (let [mid (get-in req [:path-params :material-id])
                     prosets (mc/find-maps (:db db) "prosets" {:material-id mid})
-                    all-problems (mapcat :problems prosets)]
+                    all-problems (mapcat :problems prosets)
+                    randomized (english/shuffle-questions all-problems)]
                 {:status 200
                  :body {:material-id mid
-                        :problems all-problems}}))}]
+                        :problems randomized}}))}]
      ["/material/:material-id/submit-all"
       {:post (fn [req]
-               (let [mid (get-in req [:path-params :material-id])
-                     answers (get-in req [:body :answers])
-                     prosets (mc/find-maps (:db db) "prosets" {:material-id mid})
-                     all-problems (mapcat :problems prosets)
-                     result (english/grade-problems all-problems answers)]
-                 {:status 200 :body result}))}]
-     ["/user/:user-id/all-questions/submit"
-      {:post (fn [req]
-               (let [uid (get-in req [:path-params :user-id])
-                     answers (get-in req [:body :answers])
-                     materials (mc/find-maps (:db db) "materials" {:user-id uid})
-                     mids (map :_id materials)
-                     prosets (mapcat #(mc/find-maps (:db db) "prosets" {:material-id %}) mids)
-                     all-problems (mapcat :problems prosets)
-                     result (english/grade-problems all-problems answers)]
+               (let [answers (get-in req [:body :answers])
+                     problems (get-in req [:body :problems])
+                     result (english/grade-problems problems answers)]
                  {:status 200 :body result}))}]
 
      ;; single proset
      ["/by-id/:proset-id"
       {:get (fn [req]
-              (let [pid (get-in req [:path-params :proset-id])]
-                {:status 200
-                 :body (mc/find-one-as-map (:db db) "prosets" {:_id pid})}))}]
+              (let [pid (get-in req [:path-params :proset-id])
+                    proset (mc/find-one-as-map (:db db) "prosets" {:_id pid})
+                    randomized (update proset :problems english/shuffle-questions)]
+                {:status 200 :body randomized}))}]
      ["/by-id/:proset-id/submit"
       {:post (fn [req]
-               (let [pid (get-in req [:path-params :proset-id])
-                     answers (get-in req [:body :answers])
-                     proset (mc/find-one-as-map (:db db) "prosets" {:_id pid})
-                     problems (:problems proset)
+               (let [answers (get-in req [:body :answers])
+                     problems (get-in req [:body :problems])
                      result (english/grade-problems problems answers)]
                  {:status 200 :body result}))}]
 
@@ -130,11 +116,51 @@
                     materials (mc/find-maps (:db db) "materials" {:user-id uid})
                     mids (map :_id materials)
                     prosets (mapcat #(mc/find-maps (:db db) "prosets" {:material-id %}) mids)
-                    all-problems (mapcat :problems prosets)]
+                    all-problems (mapcat :problems prosets)
+                    randomized (english/shuffle-questions all-problems)]
                 {:status 200
                  :body {:user-id uid
-                        :problems all-problems}}))}]]
-    
+                        :problems randomized}}))}]
+     ["/user/:user-id/all-questions/submit"
+      {:post (fn [req]
+               (let [answers (get-in req [:body :answers])
+                     problems (get-in req [:body :problems])
+                     result (english/grade-problems problems answers)]
+                 {:status 200 :body result}))}]
+     ;; custom prosets
+    ["/custom"
+     ["/generate"
+      {:post (fn [req]
+               (let [uid (get-in req [:body :user-id])
+                     material-ids (get-in req [:body :material-ids])
+                     title (get-in req [:body :title])]
+                 (if (empty? material-ids)
+                   {:status 400
+                    :body {:status "error" :message "Material lo kosong, kocak"}}
+                   {:status 200
+                    :body (english/generate-custom-proset! (:db db) uid material-ids title)})))}]
+     ["/user/:user-id"
+      {:get (fn [req]
+              (let [uid (get-in req [:path-params :user-id])]
+                {:status 200
+                 :body (vec
+                        (mc/find-maps (:db db)
+                                      "prosets-custom"
+                                      {:user-id uid}))}))}]
+
+     ["/id/:custom-id"
+      {:get (fn [req]
+              (let [cid (get-in req [:path-params :custom-id])
+                    proset (mc/find-one-as-map (:db db) "prosets-custom" {:_id cid})
+                    randomized (update proset :problems english/shuffle-questions)]
+                {:status 200 :body randomized}))}]
+     ["/id/:custom-id/submit"
+      {:post (fn [req]
+               (let [answers (get-in req [:body :answers])
+                     problems (get-in req [:body :problems])
+                     result (english/grade-problems problems answers)]
+                 {:status 200 :body result}))}]]]
+
     ;; --- ASSESSMENTS ---
     ["/assessments"
      ["/:user-id/generate"
