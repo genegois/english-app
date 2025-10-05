@@ -88,6 +88,11 @@
                            (rf/dispatch [:fetch-material (:_id m)]))}
               (str (or (:topic m) "Untitled"))]])]
          [:p.small "Belum ada materi."])
+       
+       [:button.btn.btn-secondary
+        {:style {:margin-top "1em"}
+         :on-click #(set! (.-hash js/location) "#custom-proset")}
+        "Buat Latihan Gabungan Custom"]
 
        ;; latihan gabungan semua materi
        [:div.panel {:style {:margin-top "2em"}}
@@ -342,6 +347,142 @@
 ;; -----------------------------------------------------------------------------
 ;; PRACTICE
 ;; -----------------------------------------------------------------------------
+(defn custom-proset-page []
+  ;; ⬇️ state lokal dideklarasi di luar fn render
+  (let [selected (r/atom #{})
+        title (r/atom "")]
+    (fn []  ;; render function
+      (let [materials @(rf/subscribe [:materials])
+            custom @(rf/subscribe [:custom-proset])
+            user @(rf/subscribe [:user])
+            custom-list @(rf/subscribe [:user-custom-prosets])
+            loading? @(rf/subscribe [:loading-custom-prosets?])]
+        [:div.container
+         [:h2.page-title "Buat Latihan Gabungan"]
+
+         ;; input title (gaya generate-page)
+         [input-field title "Judul (opsional) — misal: Gabungan Love + Nurture" "text"]
+
+         ;; Checkbox list materi
+         [:div {:style {:margin-top "1em"}}
+          [:h4 "Pilih Materi lo:"]
+          (doall
+           (for [m materials]
+             ^{:key (:_id m)}
+             [:div
+              [:input {:type "checkbox"
+                       :checked (contains? @selected (:_id m))
+                       :on-change #(swap! selected
+                                          (fn [s]
+                                            (if (contains? s (:_id m))
+                                              (disj s (:_id m))
+                                              (conj s (:_id m)))))}]
+              [:span {:style {:margin-left "0.5em"}}
+               (or (get-in m [:content :topic])
+                   (:topic m)
+                   "Untitled")]]))]
+
+         ;; Tombol generate
+         [:div {:style {:margin-top "1.5em"}}
+          [:button.btn.btn-primary
+           {:on-click #(rf/dispatch [:generate-custom-proset (vec @selected) @title])}
+           "Generate Gabungan"]]
+
+         ;; Hasil tampil (baru generate)
+         (when custom
+           [:div {:style {:margin-top "2em"
+                          :padding "1em"
+                          :border "1px solid #ddd"
+                          :border-radius "6px"
+                          :background "#f9f9f9"}}
+            [:h3 "✅ Latihan berhasil dibuat!"]
+            [:p (str "Judul: " (:topic custom))]
+            [:p (str "Jumlah Soal: " (count (:problems custom)))]
+            [:button.btn.btn-secondary
+             {:on-click #(do
+                           (rf/dispatch [:fetch-custom-proset-by-id (:_id custom)])
+                           (set! (.-hash js/location)
+                                 (str "#practice-custom/" (:_id custom))))}
+             "Mulai Latihan"]])
+
+         ;; Divider
+         [:hr {:style {:margin "2em 0"}}]
+
+         ;; List custom proset user
+         [:h3 "Latihan Gabungan lo"]
+         [:div {:style {:margin-bottom "1em"}}
+          [:button.btn.btn-outline-primary
+           {:on-click #(rf/dispatch
+                        [:fetch-user-custom-prosets
+                         (or (:id user) (:_id user) (:email user))])}
+           (if loading? "Loading..." "🔄 Refresh List")]]
+
+         (cond
+           loading? [:p "Sedang memuat..."]
+
+           (seq custom-list)
+           [:div.custom-list
+            (doall
+             (for [c (reverse custom-list)]
+               ^{:key (:_id c)}
+               [:div.custom-item
+                {:style {:border "1px solid #ddd"
+                         :padding "0.75em"
+                         :margin-bottom "0.5em"
+                         :border-radius "6px"}}
+                [:div {:style {:display "flex"
+                               :justify-content "space-between"
+                               :align-items "center"}}
+                 [:div
+                  [:strong (or (:topic c) "Untitled")]
+                  [:div {:style {:font-size "0.85em" :color "#666"}}
+                   (str "Soal: " (count (:problems c)))]]
+                 [:div
+                  [:button.btn.btn-sm.btn-secondary
+                   {:on-click #(do
+                                 (rf/dispatch [:fetch-custom-proset-by-id (:_id c)])
+                                 (set! (.-hash js/location)
+                                       (str "#practice-custom/" (:_id c))))}
+                   "Mulai"]]]]))]
+
+           :else
+           [:p "Belum ada latihan gabungan yang lo buat."])]))))
+
+(defn custom-proset-test-page []
+  (let [p @(rf/subscribe [:custom-current-proset])
+        answers (r/atom {})]
+    [:div.container
+     [:h2.page-title (or (:topic p) "Latihan Gabungan")]
+     (if (seq (:problems p))
+       [:div
+        [:ol
+         (for [[idx q] (map-indexed vector (:problems p))]
+           ^{:key (str "custom-q-" idx)}
+           [:li.question
+            [:div.problem (:problem q)]
+            [:ul.options
+             (for [[i choice] (map-indexed vector (:choices q))]
+               ^{:key (str "custom-opt-" idx "-" i)}
+               [:li.option
+                [:label
+                 [:input {:type "radio"
+                          :name (str "custom-q" idx)
+                          :value i
+                          :on-change #(swap! answers assoc idx i)}]
+                 [:span {:style {:margin-left "0.6em"}}
+                  (str (char (+ 65 i)) ". " (or (:text choice) choice))]]])]])]
+        [:div {:style {:margin-top "1em"}}
+         [:button.btn.btn-success
+          {:on-click #(rf/dispatch
+                       [:submit-custom-proset
+                        (:_id p)
+                        (mapv (fn [i]
+                                {:selected (get @answers i nil)})
+                              (range (count (:problems p))))])}
+          "Submit Jawaban"]]]
+       [:p "Soal kosong bro, coba generate dulu."])]))
+
+
 (defn practice-page [material-id]
   (let [difficulty (r/atom "easy")]
     (fn []
@@ -561,6 +702,8 @@
        :practice   [practice-page (first params)]
        :bank-soal [bank-soal-page]
        :practice-proset [practice-proset-page]
+       :custom-prosets [custom-proset-page]
+       :practice-custom [custom-proset-test-page]
        :practice-result [practice-result-page]
        :practice-all [practice-all-page (first params)]
        :practice-all-user [practice-all-user-page]
