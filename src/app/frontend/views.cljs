@@ -186,7 +186,7 @@
     (fn []
       [:div.container
        [:h2.page-title "Generate Materi"]
-       [input-field topic "Topik (misal Vocabulary)" "text"] 
+       [input-field topic "Topik (misal Vocabulary atau lo bisa bacot kasih konteks mau belajar apaan)" "text"] 
        [:div
         [:button.btn.btn-success
          {:on-click #(rf/dispatch [:generate-material {:topic @topic}])}
@@ -711,3 +711,4 @@
        :assessment-test [assessment-test-page]
        :assessment-result [assessment-result-page]
        [:div "Halaman tidak ditemukan."])]))
+
