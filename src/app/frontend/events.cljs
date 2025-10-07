@@ -36,10 +36,20 @@
          user (assoc user :id id)]
      (assoc db :user user))))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  :set-page
- (fn [db [_ page & params]]
-   (assoc db :page page :page-params params)))
+ (fn [{:keys [db]} [_ page & params]]
+   (let [user (get db :user)
+         uid  (or (:id user) (:_id user) (:email user))]
+     {:db (assoc db :page page :page-params params)
+      :dispatch-n
+      (cond-> []
+        (= page :materials)
+        (conj [:fetch-materials])
+
+        (= page :custom-prosets)
+        (conj [:fetch-user-custom-prosets uid]))})))
+
 
 (rf/reg-event-fx
  :notify
@@ -190,13 +200,14 @@
                                        :title title}
                      :format          (ajax/json-request-format)
                      :response-format (ajax/json-response-format {:keywords? true})
-                     :on-success      [:set-custom-proset]
+                     :on-success      [:set-custom-proset user-id]
                      :on-failure      [:api-failure "generate-custom-proset"]}}))))
 
-(rf/reg-event-db
+(rf/reg-event-fx
  :set-custom-proset
- (fn [db [_ resp]]
-   (assoc db :custom-proset resp)))
+ (fn [{:keys [db]} [_ user-id resp]]
+   {:db (assoc db :custom-proset resp)
+    :dispatch [:fetch-user-custom-prosets user-id]}))
 
 
 ;; --- Fetch List Custom Prosets ---
@@ -247,6 +258,21 @@
  (fn [db [_ res]]
    (assoc db :custom-current-proset res)))
 
+(rf/reg-event-fx
+ :delete-custom-proset
+ (fn [_ [_ custom-id user-id]]
+   {:http-xhrio {:method :delete
+                 :uri (api/url (str "/prosets/custom/id/" custom-id "/delete"))
+                 :format (ajax/json-request-format)
+                 :response-format (ajax/json-response-format {:keywords? true})
+                 :on-success [:delete-custom-proset-success user-id]
+                 :on-failure [:api-failure "delete-custom-proset"]}}))
+
+(rf/reg-event-fx
+ :delete-custom-proset-success
+ (fn [{:keys [db]} [_ user-id _]]
+   {:db (dissoc db :custom-proset) 
+    :dispatch [:fetch-user-custom-prosets user-id]}))
 
 ;; --- Submit Jawaban dari Custom Proset ---
 (rf/reg-event-fx
@@ -309,6 +335,24 @@
                  :response-format (ajax/json-response-format {:keywords? true})
                  :on-success [:set-prosets]
                  :on-failure [:api-failure "fetch-prosets"]}}))
+
+;; --- Delete Regular Proset ---
+(rf/reg-event-fx
+ :delete-proset
+ (fn [_ [_ proset-id]]
+   {:http-xhrio {:method :delete
+                 :uri (api/url (str "/prosets/by-id/" proset-id "/delete"))
+                 :format (ajax/json-request-format)
+                 :response-format (ajax/json-response-format {:keywords? true})
+                 :on-success [:delete-proset-success proset-id]
+                 :on-failure [:api-failure "delete-proset"]}}))
+
+(rf/reg-event-db
+ :delete-proset-success
+ (fn [db [_ proset-id _]]
+   (update db :prosets
+           (fn [ps] (remove #(= (:_id %) proset-id) ps)))))
+
 
 (rf/reg-event-db
  :set-prosets
