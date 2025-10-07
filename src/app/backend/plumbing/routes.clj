@@ -106,8 +106,14 @@
                (let [answers (get-in req [:body :answers])
                      problems (get-in req [:body :problems])
                      result (english/grade-problems problems answers)]
-                 {:status 200 :body result}))}]
-
+                 {:status 200 :body result}))}] 
+     ["/by-id/:proset-id/delete" 
+      {:delete (fn [req]
+                 (let [pid (get-in req [:path-params :proset-id])
+                       result (mc/remove (:db db) "prosets" {:_id pid})]
+                   (if result
+                    {:status 200 :body {:status "success" :message "Proset dihapus"}}
+                     {:status 404 :body {:status "error" :message "Proset gak ketemu"}})))}]
 
      ;; fetch all user questions
      ["/user/:user-id/all-questions"
@@ -159,7 +165,18 @@
                (let [answers (get-in req [:body :answers])
                      problems (get-in req [:body :problems])
                      result (english/grade-problems problems answers)]
-                 {:status 200 :body result}))}]]]
+                 {:status 200 :body result}))}]
+     ["/id/:custom-id/delete"
+      {:delete (fn [req]
+                 (let [cid (get-in req [:path-params :custom-id])
+                       result (mc/remove (:db db) "prosets-custom" {:_id cid})]
+                   (if result
+                    {:status 200
+                     :body {:status "success"
+                            :message "Latihan berhasil dihapus"}}
+                     {:status 404
+                      :body {:status "error"
+                             :message "Latihan gak ditemukan"}})))}]]]
 
     ;; --- ASSESSMENTS ---
     ["/assessments"
