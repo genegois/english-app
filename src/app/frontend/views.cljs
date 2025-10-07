@@ -348,10 +348,9 @@
 ;; PRACTICE
 ;; -----------------------------------------------------------------------------
 (defn custom-proset-page []
-  ;; ⬇️ state lokal dideklarasi di luar fn render
   (let [selected (r/atom #{})
         title (r/atom "")]
-    (fn []  ;; render function
+    (fn []
       (let [materials @(rf/subscribe [:materials])
             custom @(rf/subscribe [:custom-proset])
             user @(rf/subscribe [:user])
@@ -360,10 +359,10 @@
         [:div.container
          [:h2.page-title "Buat Latihan Gabungan"]
 
-         ;; input title (gaya generate-page)
+         ;; Input judul (kayak generate-page)
          [input-field title "Judul (opsional) — misal: Gabungan Love + Nurture" "text"]
 
-         ;; Checkbox list materi
+         ;; Checkbox materi
          [:div {:style {:margin-top "1em"}}
           [:h4 "Pilih Materi lo:"]
           (doall
@@ -388,7 +387,7 @@
            {:on-click #(rf/dispatch [:generate-custom-proset (vec @selected) @title])}
            "Generate Gabungan"]]
 
-         ;; Hasil tampil (baru generate)
+         ;; Hasil generate (langsung muncul)
          (when custom
            [:div {:style {:margin-top "2em"
                           :padding "1em"
@@ -398,17 +397,26 @@
             [:h3 "✅ Latihan berhasil dibuat!"]
             [:p (str "Judul: " (:topic custom))]
             [:p (str "Jumlah Soal: " (count (:problems custom)))]
-            [:button.btn.btn-secondary
-             {:on-click #(do
-                           (rf/dispatch [:fetch-custom-proset-by-id (:_id custom)])
-                           (set! (.-hash js/location)
-                                 (str "#practice-custom/" (:_id custom))))}
-             "Mulai Latihan"]])
+            [:div
+             [:button.btn.btn-sm.btn-secondary
+              {:on-click #(do
+                            (rf/dispatch [:fetch-custom-proset-by-id (:_id custom)])
+                            (set! (.-hash js/location)
+                                  (str "#practice-custom/" (:_id custom))))}
+              "Mulai"]
+             [:button.btn.btn-sm.btn-danger
+              {:style {:margin-left "0.5em"}
+               :on-click #(when (js/confirm "Yakin mau hapus latihan ini?")
+                            (rf/dispatch [:delete-custom-proset
+                                          (:_id custom)
+                                          ;; setelah sukses hapus, refresh list dan clear state
+                                          (or (:id user) (:_id user) (:email user))]))}
+              "Hapus"]]])
 
          ;; Divider
          [:hr {:style {:margin "2em 0"}}]
 
-         ;; List custom proset user
+         ;; List latihan gabungan user
          [:h3 "Latihan Gabungan lo"]
          [:div {:style {:margin-bottom "1em"}}
           [:button.btn.btn-outline-primary
@@ -443,7 +451,14 @@
                                  (rf/dispatch [:fetch-custom-proset-by-id (:_id c)])
                                  (set! (.-hash js/location)
                                        (str "#practice-custom/" (:_id c))))}
-                   "Mulai"]]]]))]
+                   "Mulai"]
+                  [:button.btn.btn-sm.btn-danger
+                   {:style {:margin-left "0.5em"}
+                    :on-click #(when (js/confirm "Yakin mau hapus latihan ini?")
+                                 (rf/dispatch [:delete-custom-proset
+                                               (:_id c)
+                                               (or (:id user) (:_id user) (:email user))]))}
+                   "Hapus"]]]]))]
 
            :else
            [:p "Belum ada latihan gabungan yang lo buat."])]))))
@@ -526,17 +541,32 @@
         (for [p ps]
           ^{:key (:_id p)}
           [:li
-           [:a {:href (str "#practice-proset/" (:_id p))
-                :on-click (fn [e]
-                            (.preventDefault e)
-                            (rf/dispatch [:fetch-proset-by-id (:_id p)]))}
-            [:span (or (:bank-code p) (str "Proset " (:_id p)))]
-            " — "
-            [:span.badge (or (:difficulty p) "")]]])]
+           [:div {:style {:display "flex"
+                          :justify-content "space-between"
+                          :align-items "center"}}
+            ;; kiri: info + link
+            [:div
+             [:a {:href (str "#practice-proset/" (:_id p))
+                  :on-click (fn [e]
+                              (.preventDefault e)
+                              (rf/dispatch [:fetch-proset-by-id (:_id p)]))}
+              [:span (or (:bank-code p) (str "Proset " (:_id p)))]
+              " — "
+              [:span.badge (or (:difficulty p) "")]]]
+
+            ;; kanan: tombol hapus
+            [:div
+             [:button.btn.btn-sm.btn-danger
+              {:on-click #(when (js/confirm "Yakin mau hapus bank soal ini?")
+                            (rf/dispatch [:delete-proset (:_id p)]))}
+              "Hapus"]]]])]
        [:div.panel
         [:p "Belum ada bank soal untuk materi ini."]
         [:button.btn.btn-primary
-         {:on-click #(rf/dispatch [:generate-prosets (:_id @(rf/subscribe [:current-material])) "medium"])}
+         {:on-click #(rf/dispatch
+                      [:generate-prosets
+                       (:_id @(rf/subscribe [:current-material]))
+                       "medium"])}
          "Generate Bank Soal"]])]))
 
 (defn practice-proset-page []
@@ -711,4 +741,3 @@
        :assessment-test [assessment-test-page]
        :assessment-result [assessment-result-page]
        [:div "Halaman tidak ditemukan."])]))
-
