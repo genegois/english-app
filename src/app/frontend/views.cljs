@@ -18,164 +18,346 @@
 ;; AUTH
 ;; -----------------------------------------------------------------------------
 (defn auth-page []
-  (let [login-email    (r/atom "")
-        reg-email      (r/atom "")
-        reg-username   (r/atom "")]
+  (let [login-email  (r/atom "")
+        reg-email    (r/atom "")
+        reg-username (r/atom "")]
     (fn []
       [:div.container
-       [:h1.page-title "English Learning nih, hehe"]
-       [:p.tagline "Register dulu brok, klo udah tinggal login dah!"]
-       ;; REGISTER PANEL
+       {:style {:max-width "500px"
+                :margin "2em auto"
+                :text-align "center"}}
+
+       ;; Judul & tagline
+       [:h1 {:style {:font-weight "700"
+                     :font-size "1.8em"
+                     :margin-bottom "0.3em"}}
+        "🎓 English Learning nih"]
+       [:p {:style {:font-size "0.95em"
+                    :color "#666"
+                    :margin-bottom "2em"}}
+        "Coba ae dulu"]
+
+       ;; --- REGISTER ---
        [:div.panel
-        [:h2 "Register"]
+        {:style {:padding "1.5em"
+                 :margin-bottom "1.5em"
+                 :border "1px solid #ddd"
+                 :border-radius "10px"
+                 :background "#fafafa"
+                 :box-shadow "0 2px 4px rgba(0,0,0,0.05)"}}
+        [:h2 {:style {:margin-bottom "1em"
+                      :color "#333"
+                      :font-size "1.3em"}}
+         "📝 Register Baru"]
+
         [input-field reg-email "Email" "email"]
         [input-field reg-username "Username" "text"]
-        [:div
-         [:button.btn.btn-success
-          {:on-click #(rf/dispatch
-                       [:register {:email @reg-email
-                                   :username @reg-username}])}
-          "Register"]]]
-       ;; LOGIN PANEL
+
+        [:button.btn.btn-success
+         {:style {:width "100%"
+                  :margin-top "1em"}
+          :on-click #(rf/dispatch
+                      [:register {:email @reg-email
+                                  :username @reg-username}])}
+         "Daftar Sekarang"]]
+
+       ;; --- PEMISAH ---
+       [:div {:style {:margin "1.5em 0"
+                      :color "#aaa"
+                      :font-size "0.9em"
+                      :display "flex"
+                      :align-items "center"
+                      :justify-content "center"}}
+        [:hr {:style {:flex "1"
+                      :border "none"
+                      :border-top "1px solid #ddd"
+                      :margin "0 10px"}}]
+        "atau"
+        [:hr {:style {:flex "1"
+                      :border "none"
+                      :border-top "1px solid #ddd"
+                      :margin "0 10px"}}]]
+
+       ;; --- LOGIN ---
        [:div.panel
-        [:h2 "Login"]
+        {:style {:padding "1.5em"
+                 :border "1px solid #ddd"
+                 :border-radius "10px"
+                 :background "#fefefe"
+                 :box-shadow "0 2px 4px rgba(0,0,0,0.05)"}}
+        [:h2 {:style {:margin-bottom "1em"
+                      :color "#333"
+                      :font-size "1.3em"}}
+         "🔐 Login"]
+
         [input-field login-email "Email" "email"]
-        [:div
-         [:button.btn.btn-primary
-          {:on-click #(rf/dispatch [:login {:email @login-email}])}
-          "Login"]]]])))
+
+        [:button.btn.btn-primary
+         {:style {:width "100%"
+                  :margin-top "1em"}
+          :on-click #(rf/dispatch [:login {:email @login-email}])}
+         "Masuk"]]
+
+       ;; Footer kecil
+       [:p {:style {:margin-top "2em"
+                    :font-size "0.8em"
+                    :color "#aaa"}}
+        "© 2025 PT. Zona Pengembangan Xpertise"]])))
 
 ;; -----------------------------------------------------------------------------
 ;; HOME
 ;; -----------------------------------------------------------------------------
 (defn home-page []
   [:div.container
-   [:h1.page-title "English Learning nih hehe"]
-   [:h2 "Home"]
-   [:div.btn-group
-    [:button.btn {:on-click #(set! (.-hash js/location) "#generate")} "Generate Manual"]
-    [:button.btn {:on-click #(set! (.-hash js/location) "#materials")} "List Materi"]
-    [:button.btn {:on-click #(set! (.-hash js/location) "#assessment")} "Assessment"]]])
+   {:style {:max-width "600px"
+            :margin "2em auto"
+            :text-align "center"}}
+
+   ;; judul utama
+   [:h1 {:style {:font-weight "700"
+                 :font-size "2em"
+                 :margin-bottom "0.3em"}}
+    "🎯 English Learning Hub"]
+
+   [:p {:style {:font-size "1em"
+                :color "#666"
+                :margin-bottom "2em"}}
+    "Tempat lo berlatih Bahasa Inggris, generate soal, dan nguji kemampuan lo. 💪"]
+
+   ;; menu utama
+   [:div {:style {:display "flex"
+                  :flex-direction "column"
+                  :gap "1em"}}
+
+    [:button.btn.btn-primary
+     {:style {:padding "1em"
+              :font-size "1.1em"
+              :border-radius "8px"
+              :cursor "pointer"}
+      :on-click #(set! (.-hash js/location) "#generate")}
+     "🧠 Generate Manual"]
+
+    [:button.btn.btn-success
+     {:style {:padding "1em"
+              :font-size "1.1em"
+              :border-radius "8px"
+              :cursor "pointer"}
+      :on-click #(set! (.-hash js/location) "#materials")}
+     "📚 List Materi"]
+
+    [:button.btn.btn-accent
+     {:style {:padding "1em"
+              :font-size "1.1em"
+              :border-radius "8px"
+              :cursor "pointer"}
+      :on-click #(set! (.-hash js/location) "#assessment")}
+     "🧩 Assessment"]]
+
+   ;; footer kecil
+   [:p {:style {:margin-top "2em"
+                :font-size "0.85em"
+                :color "#999"}}
+    "Selamat belajar dan jangan lupa istirahat 😎"]])
 
 ;; -----------------------------------------------------------------------------
 ;; MATERIALS
 ;; -----------------------------------------------------------------------------
 (defn materials-page []
   (fn []
-    (let [materials @(rf/subscribe [:materials])] 
+    (let [materials @(rf/subscribe [:materials])]
       [:div.container
-       [:h2.page-title "List Materi"]
+       {:style {:max-width "750px"
+                :margin "3em auto"
+                :font-family "Inter, sans-serif"}}
 
-       ;; tombol refresh
-       [:div.row
-        [:button.btn.btn-secondary
-         {:on-click #(rf/dispatch [:fetch-materials])}
-         "Refresh"]
-        [:button.btn.btn-secondary
-         {:on-click #(set! (.-hash js/location) "#/")}
-         "Balik ke halaman utama"]]
+       ;; Title section
+       [:h2 {:style {:font-size "2em"
+                     :font-weight "700"
+                     :margin-bottom "0.3em"
+                     :text-align "center"}}
+        "📚 List Materi"]
 
-       ;; daftar materi
+       [:p {:style {:text-align "center"
+                    :color "#666"
+                    :margin-bottom "1.8em"}}
+        "Lihat semua materi yang udah lo generate. Bisa lo buka, latihanin, atau bikin gabungannya. 🔥"]
+
+       ;; Toolbar buttons
+       [:div {:style {:display "flex"
+                      :justify-content "center"
+                      :gap "1em"
+                      :margin-bottom "2em"}}
+        [:button.btn.btn-outline-primary
+         {:style {:padding "0.6em 1.2em"
+                  :font-size "1em"}
+          :on-click #(rf/dispatch [:fetch-materials])}
+         "🔄 Refresh"]
+        [:button.btn.btn-secondary
+         {:style {:padding "0.6em 1.2em"
+                  :font-size "1em"}
+          :on-click #(set! (.-hash js/location) "#/")}
+         "🏠 Balik ke Home"]]
+
+       ;; List of materials
        (if (seq materials)
-         [:ul.list
+         [:div
           (for [m materials]
             ^{:key (str (:_id m))}
-            [:li.list-item
-             [:a.link
-              {:href (str "#material/" (:_id m))
-               :on-click (fn [e]
-                           (.preventDefault e)
-                           (rf/dispatch [:fetch-material (:_id m)]))}
-              (str (or (:topic m) "Untitled"))]])]
-         [:p.small "Belum ada materi."])
-       
-       [:button.btn.btn-secondary
-        {:style {:margin-top "1em"}
-         :on-click #(set! (.-hash js/location) "#custom-proset")}
-        "Buat Latihan Gabungan Custom"]
+            [:div.material-card
+             {:style {:background "#fff"
+                      :border "1px solid #ddd"
+                      :border-radius "8px"
+                      :padding "1em 1.2em"
+                      :margin-bottom "1em"
+                      :box-shadow "0 1px 3px rgba(0,0,0,0.05)"
+                      :transition "transform 0.2s ease"
+                      :cursor "pointer"}
+              :on-click #(do
+                           (rf/dispatch [:fetch-material (:_id m)])
+                           (set! (.-hash js/location)
+                                 (str "#material/" (:_id m))))}
+             [:h4 {:style {:margin "0 0 0.3em 0"
+                           :font-weight "600"
+                           :color "#333"}}
+              (or (:topic m) "Untitled")]
+             [:p {:style {:margin 0
+                          :font-size "0.9em"
+                          :color "#777"}}
+              "Klik buat buka materi ini"]])]
+         [:p {:style {:text-align "center"
+                      :color "#888"
+                      :margin "2em 0"}}
+          "Belum ada materi yang lo generate 😢"])
 
-       ;; latihan gabungan semua materi
-       [:div.panel {:style {:margin-top "2em"}}
-        [:h3.subtle "Latihan Gabungan Semua Materi"]
+       ;; Custom proset
+       [:div {:style {:margin-top "3em"
+                      :text-align "center"}}
+        [:button.btn.btn-accent
+         {:style {:padding "0.8em 1.5em"
+                  :font-size "1em"
+                  :font-weight "500"
+                  :border-radius "6px"
+                  :background "#28a745"
+                  :color "#fff"
+                  :cursor "pointer"}
+          :on-click #(set! (.-hash js/location) "#custom-proset")}
+         "🧩 Buat latihan gabungan dari list materi lo"]]
+
+       ;; All materials combined test
+       [:div.panel {:style {:margin-top "3em"
+                            :padding "1.5em"
+                            :border-radius "8px"
+                            :background "#f8f9fa"
+                            :border "1px solid #eee"
+                            :text-align "center"}}
+        [:h3 {:style {:margin-bottom "0.7em"
+                      :color "#333"
+                      :font-weight "600"}}
+         "🎯 Tes Semua Soal dari Semua Materi"]
         [:button.btn.btn-primary
-         {:on-click #(do
+         {:style {:padding "0.8em 1.6em"
+                  :font-size "1em"
+                  :border-radius "6px"}
+          :on-click #(do
                        (rf/dispatch [:fetch-user-all-questions])
                        (set! (.-hash js/location) "#practice-all-user"))}
-         "Tes Semua Soal dari Semua Materi"]]])))
+         "Mulai Tes 🔥"]]])))
 
 (defn text-from [node lang]
   (cond
     (nil? node) nil
     (string? node) node
-    (map? node) (or (get node lang) (get node :en) (get node "en") (get node :id) (get node "id") (pr-str node))
+    (map? node)
+    (or (get node lang)
+        (get node :en)
+        (get node "en")
+        (get node :id)
+        (get node "id")
+        (pr-str node))
     :else (pr-str node)))
 
-(defn render-multi 
-  "items can be vector of objects or single object; return hiccup list or nil"
-  [items lang] 
-  (cond
-    (nil? items) nil
-    (and (sequential? items) (seq items))
-    [:ul (for [it items] ^{:key (text-from it lang)} [:li (text-from it lang)])]
-    (map? items)
-    [:div 
-     (for [[k v] items] 
-       ^{:key (str k)} 
-       [:p (str (str/upper-case (name k)) ": " (text-from v lang))])]
-    :else [:div (text-from items lang)]))
-
 (defn lang-block [title node]
-  [:div
-   [:p [:strong title]]
-   [:ul.lang-list
-    [:li [:strong "EN: "] (text-from node :en)]
-    [:li [:strong "ID: "] (text-from node :id)]]])
+  [:div {:style {:margin-bottom "1.2em"}}
+   [:h3 {:style {:color "#333"
+                 :font-size "1.1em"
+                 :font-weight "600"
+                 :margin-bottom "0.5em"}}
+    title]
+   [:div {:style {:background "#f9f9f9"
+                  :padding "0.8em 1em"
+                  :border-radius "6px"
+                  :border "1px solid #eee"}}
+    [:p {:style {:margin-bottom "0.4em"}}
+     [:strong "EN: "] (text-from node :en)]
+    [:p {:style {:margin 0}}
+     [:strong "ID: "] (text-from node :id)]]])
+
+(defn render-multi [items lang]
+  (when (seq items)
+    [:ul {:style {:margin "0.5em 0 0.5em 1.5em"
+                  :padding 0
+                  :color "#333"}}
+     (for [it items]
+       ^{:key (text-from it lang)}
+       [:li {:style {:margin-bottom "0.3em"}} (text-from it lang)])]))
 
 (defn material-page []
   (fn []
     (let [m @(rf/subscribe [:current-material])
-          ps @(rf/subscribe [:prosets])] 
+          ps @(rf/subscribe [:prosets])]
       [:div.container
-       [:h2.page-title "Detail Materi"]
+       {:style {:max-width "800px"
+                :margin "2em auto"
+                :font-family "Inter, sans-serif"}}
 
+       [:h2.page-title {:style {:margin-bottom "0.5em"}} "📘 Detail Materi"]
        (if m
          [:div
-          [:p [:strong "Topic: "] (or (:topic m) "—")]
+          [:h2 {:style {:font-size "1.6em"
+                        :margin-bottom "0.8em"
+                        :color "#222"}}
+           (or (:topic m) "Untitled")]
 
-          ;; definisi / usage / importance / tips
-          [:div.panel
+          [:div {:style {:margin-bottom "1em"
+                         :color "#777"}}
+           "Materi ini mencakup definisi, penggunaan, dan contoh dalam bahasa Inggris dan Indonesia."]
+
+          ;; Main content
+          [:div.panel {:style {:margin-bottom "1.5em"}}
            (lang-block "Definition" (get-in m [:content :definition]))
            (lang-block "Usage" (get-in m [:content :usage]))
            (lang-block "Importance" (get-in m [:content :importance]))
            (lang-block "Tips" (get-in m [:content :tips]))]
 
-          ;; common mistakes
-          [:div.panel
-           [:h3.subtle "Common mistakes"]
+          ;; Common mistakes
+          [:div.panel {:style {:margin-bottom "1.5em"}}
+           [:h3.subtle "❌ Common Mistakes (EN)"]
            (render-multi (get-in m [:content :common-mistakes :en]) :en)
-           [:h3.subtle "Kesalahan umum"]
+           [:h3.subtle "⚠️ Kesalahan Umum (ID)"]
            (render-multi (get-in m [:content :common-mistakes :id]) :id)]
 
-          ;; examples
-          [:div.panel
-           [:h3.subtle "Examples"]
-           (let [ex (get-in m [:content :examples])]
-             [:ul.material-list
-              [:li (str "Positive EN: " (text-from (get-in ex [:positive]) :en))]
-              [:li (str "Positive ID: " (text-from (get-in ex [:positive]) :id))]
-              [:li (str "Negative EN: " (text-from (get-in ex [:negative]) :en))]
-              [:li (str "Negative ID: " (text-from (get-in ex [:negative]) :id))]])]
+          ;; Examples
+          (let [ex (get-in m [:content :examples])]
+            [:div.panel
+             [:h3.subtle "🧩 Examples"]
+             [:ul {:style {:margin-left "1.5em"}}
+              [:li (str "Positive (EN): " (text-from (get-in ex [:positive]) :en))]
+              [:li (str "Positive (ID): " (text-from (get-in ex [:positive]) :id))]
+              [:li (str "Negative (EN): " (text-from (get-in ex [:negative]) :en))]
+              [:li (str "Negative (ID): " (text-from (get-in ex [:negative]) :id))]]])
 
-          ;; practice
-          [:div.panel
-           [:h3.subtle "Practice"]
+          ;; Practice section
+          [:div.panel {:style {:margin-top "2em"
+                               :text-align "center"
+                               :padding "1em"}}
            (if (seq ps)
-             [:div.btn-group
-              [:button.btn.btn-primary
-               {:on-click #(set! (.-hash js/location) (str "#practice/" (:_id m)))}
-               "Menu Practice"]]
-             [:div
-              [:p.small "Practice belum ada boss. Lo harusnya gak lihat ini sih"]])]]
+             [:button.btn.btn-primary
+              {:style {:padding "0.8em 1.4em"
+                       :font-size "1em"}
+               :on-click #(set! (.-hash js/location)
+                                (str "#practice/" (:_id m)))}
+              "🎯 Buka Practice"]
+             [:p.small "Practice belum ada boss. Generate dulu."])]]
          [:p.small "Materi belum dimuat. Klik dari List dulu."])])))
 
 ;; -----------------------------------------------------------------------------
@@ -185,14 +367,52 @@
   (let [topic (r/atom "")]
     (fn []
       [:div.container
-       [:h2.page-title "Generate Materi"]
-       [input-field topic "Topik (misal Vocabulary atau lo bisa bacot kasih konteks mau belajar apaan)" "text"] 
+       {:style {:max-width "600px"
+                :margin "3em auto"
+                :text-align "center"}}
+
+       ;; judul
+       [:h2 {:style {:font-size "2em"
+                     :font-weight "700"
+                     :margin-bottom "0.5em"}}
+        "⚡ Generate Materi Baru"]
+
+       [:p {:style {:font-size "1em"
+                    :color "#555"
+                    :margin-bottom "1.5em"}}
+        "Masukin topik yang mau lo pelajarin — bisa satu kata (‘Preposition’) atau bacot bebas sesuka lo"]
+
+       ;; input field lebih lebar & empuk
+       [:input
+        {:type "text"
+         :placeholder "Topik / Konteks Belajar lo"
+         :value @topic
+         :on-change #(reset! topic (.. % -target -value))
+         :style {:width "100%"
+                 :padding "0.3em 0.5em"
+                 :font-size "1.09em"
+                 :border "1px solid #ccc"
+                 :border-radius "6px"
+                 :box-sizing "border-box"
+                 :margin-bottom "1.5em"}}]
+
+       ;; tombol diseragamkan proporsinya
        [:div
         [:button.btn.btn-success
-         {:on-click #(rf/dispatch [:generate-material {:topic @topic}])}
-         "Generate"]]
-       [:p.small
-        [:a {:href "#materials"} "← Lihat List Materi"]]])))
+         {:style {:padding "0.6em 0.6em"
+                  :font-size "1em"
+                  :border-radius "6px"
+                  :cursor "pointer"}
+          :on-click #(rf/dispatch [:generate-material {:topic @topic}])}
+         "Generate Materi!"]]
+
+       ;; link balik
+       [:p {:style {:margin-top "2em"
+                    :font-size "0.9em"}}
+        [:a {:href "#materials"
+             :style {:color "#007bff"
+                     :text-decoration "none"}}
+         "Lihat list materi lo"]]])))
 
 ;; -----------------------------------------------------------------------------
 ;; ASSESSMENT
@@ -205,38 +425,54 @@
         last-ts    @(rf/subscribe [:last-assessment-timestamp])
         now        (.now js/Date)]
     [:div.container
-     [:h2.page-title "Assessment"]
+     [:h2.page-title "🧩 Assessment"]
 
      (cond
-       ;; Lockout aktif (udah submit dan belum lewat 1 jam)
+       ;; ✅ Case 1: Baru aja ngerjain (cooldown sejam)
        (and submitted? last-ts (< (- now last-ts) lockout-ms))
-       [:div
-        [:p "Lo udah ngerjain assessment, coba sejam lagi bro"]
-        [:button.btn.btn-secondary
+       [:div.panel {:style {:text-align "center"
+                            :background "#fdf6ec"
+                            :border "1px solid #f5d2a0"
+                            :border-radius "8px"
+                            :padding "1.5em"}}
+        [:h3 {:style {:color "#a65b00"}} "⏳ Tunggu Dulu, Bro!"]
+        [:p {:style {:color "#704214" :margin-bottom "1em"}}
+         "Weitsss, lo udah ngerjain assessment barusan. Tunggu sejam lagi yakk."]
+        [:button.btn.btn-primary
          {:on-click #(set! (.-hash js/location) "#assessment-result")}
-         "Lihat Hasil Assessment"]]
+         "Lihat hasil terakhir lo"]]
 
-       ;; Kalau assessment udah ada tapi belum dikerjain
+       ;; 🧭 Case 2: Assessment udah digenerate tapi belum mulai
        (and assessment (not submitted?))
-       [:div.btn-group
-        [:button.btn.btn-secondary
+       [:div.panel {:style {:text-align "center"
+                            :background "#eef6ff"
+                            :border "1px solid #b8daff"
+                            :border-radius "8px"
+                            :padding "2em"}}
+        [:h3 {:style {:margin-bottom "0.5em"}} "🚀 Ready to Begin?"]
+        [:p {:style {:color "#555" :margin-bottom "1.25em"}}
+         "Assessment ini bakal nguji semua aspek — grammar, vocab, dan reading comprehension."]
+        [:button.btn.btn-primary
          {:on-click #(do
                        (rf/dispatch [:fetch-assessment])
                        (set! (.-hash js/location) "#assessment-test"))}
-         "Mulai Tes!"]]
+         "Mulai Tes Sekarang!"]]
 
-       ;; Kalau belum ada assessment → kasih opsi generate
+       ;; 🧱 Case 3: Belum ada assessment → generate baru
        :else
-       [:div
-       [:p.desc
-        "Assessment ini tuh tes menyeluruh buat ngecek kemampuan lo "
-        "dalam grammar, vocabulary, dan reading. Anggep aja ini ‘ultimate test’ "
-        "buat tau level lo sekarang."] 
-        [:div.btn-group
-         [:button.btn.btn-primary
-          {:on-click #(rf/dispatch [:generate-assessment])}
-          "Generate Assessment"]]
-        ])]))
+       [:div.panel {:style {:text-align "center"
+                            :background "#fafafa"
+                            :border "1px solid #ddd"
+                            :border-radius "8px"
+                            :padding "2em"
+                            :box-shadow "0 1px 3px rgba(0,0,0,0.1)"}}
+        [:h3 "🎯 Siap Uji Kemampuan Lo?"]
+        [:p {:style {:color "#444" :max-width "500px" :margin "0 auto 1.5em"}}
+         "Assessment ini kayak placement test — ngebantu lo ngerti sejauh apa progress lo
+          di grammar, vocabulary, sama reading comprehension. Gak usah takut, ini cuma latihan."]
+        [:button.btn.btn-success
+         {:on-click #(rf/dispatch [:generate-assessment])}
+         "Generate Assessment"]])]))
 
 (defn assessment-test-page []
   (fn []
@@ -357,67 +593,101 @@
             custom-list @(rf/subscribe [:user-custom-prosets])
             loading? @(rf/subscribe [:loading-custom-prosets?])]
         [:div.container
-         [:h2.page-title "Buat Latihan Gabungan"]
+         [:h2.page-title {:style {:margin-bottom "0.5em"
+                                  :font-weight "700"
+                                  :font-size "1.6em"
+                                  :color "#222"}}
+          "🧩 Buat Latihan Gabungan Custom"]
 
-         ;; Input judul (kayak generate-page)
-         [input-field title "Judul (opsional) — misal: Gabungan Love + Nurture" "text"]
+         ;; --- Form Card ---
+         [:div.panel {:style {:background "#ffffff"
+                              :border "1px solid #e0e0e0"
+                              :border-radius "10px"
+                              :padding "1.5em"
+                              :box-shadow "0 2px 8px rgba(0,0,0,0.05)"
+                              :margin-bottom "2em"}}
 
-         ;; Checkbox materi
-         [:div {:style {:margin-top "1em"}}
-          [:h4 "Pilih Materi lo:"]
-          (doall
-           (for [m materials]
-             ^{:key (:_id m)}
-             [:div
-              [:input {:type "checkbox"
-                       :checked (contains? @selected (:_id m))
-                       :on-change #(swap! selected
-                                          (fn [s]
-                                            (if (contains? s (:_id m))
-                                              (disj s (:_id m))
-                                              (conj s (:_id m)))))}]
-              [:span {:style {:margin-left "0.5em"}}
-               (or (get-in m [:content :topic])
-                   (:topic m)
-                   "Untitled")]]))]
+          [:h3 {:style {:margin-top 0
+                        :margin-bottom "1em"
+                        :font-weight "600"
+                        :font-size "1.2em"
+                        :color "#333"}}
+           "📘 Pilih Materi"]
 
-         ;; Tombol generate
-         [:div {:style {:margin-top "1.5em"}}
-          [:button.btn.btn-primary
-           {:on-click #(rf/dispatch [:generate-custom-proset (vec @selected) @title])}
-           "Generate Gabungan"]]
+          ;; Input judul
+          [input-field title "Judul (opsional) — misal: Gabungan Love + Nurture" "text"]
 
-         ;; Hasil generate (langsung muncul)
+          ;; Checkbox daftar materi
+[:div {:style {:margin-top "1em"
+               :display "grid"
+               :grid-template-columns "1fr 1fr"
+               :gap "0.5em"}}
+ (doall
+  (for [m materials]
+    ^{:key (:_id m)}
+    [:div {:style {:display "flex"
+                   :align-items "center"
+                   :gap "0.5em"
+                   :background (if (contains? @selected (:_id m)) "#eef6ff" "#fafafa")
+                   :border "1px solid #ddd"
+                   :padding "0.5em 0.75em"
+                   :border-radius "6px"
+                   :cursor "pointer"
+                   :transition "all 0.2s ease"}
+           :on-click #(swap! selected
+                             (fn [s]
+                               (if (contains? s (:_id m))
+                                 (disj s (:_id m))
+                                 (conj s (:_id m)))))}
+     [:input {:type "checkbox"
+              :checked (contains? @selected (:_id m))
+              :readOnly true ;; biar React gak warning
+              :style {:pointer-events "none"}}]
+     [:span {:style {:font-size "0.95em"}}
+      (or (get-in m [:content :topic])
+          (:topic m)
+          "Untitled")]]))]
+
+          ;; Tombol generate
+          [:div {:style {:margin-top "1.5em"
+                         :text-align "center"}}
+           [:button.btn.btn-primary
+            {:style {:font-weight "600"
+                     :padding "0.8em 1.5em"
+                     :font-size "1em"}
+             :on-click #(rf/dispatch [:generate-custom-proset (vec @selected) @title])}
+            "✨ Generate Gabungan"]]]
+
+         ;; --- Result Section ---
          (when custom
-           [:div {:style {:margin-top "2em"
+           [:div {:style {:margin-top "1.5em"
                           :padding "1em"
+                          :background "#f9f9f9"
                           :border "1px solid #ddd"
-                          :border-radius "6px"
-                          :background "#f9f9f9"}}
+                          :border-radius "8px"}}
             [:h3 "✅ Latihan berhasil dibuat!"]
             [:p (str "Judul: " (:topic custom))]
             [:p (str "Jumlah Soal: " (count (:problems custom)))]
-            [:div
-             [:button.btn.btn-sm.btn-secondary
+            [:div {:style {:margin-top "0.5em"
+                           :display "flex"
+                           :gap "0.5em"}}
+             [:button.btn.btn-sm.btn-success
               {:on-click #(do
                             (rf/dispatch [:fetch-custom-proset-by-id (:_id custom)])
                             (set! (.-hash js/location)
                                   (str "#practice-custom/" (:_id custom))))}
-              "Mulai"]
+              "Gasss!!"]
              [:button.btn.btn-sm.btn-danger
-              {:style {:margin-left "0.5em"}
-               :on-click #(when (js/confirm "Yakin mau hapus latihan ini?")
+              {:on-click #(when (js/confirm "Lo yakin mau hapus latihan ini?")
                             (rf/dispatch [:delete-custom-proset
                                           (:_id custom)
-                                          ;; setelah sukses hapus, refresh list dan clear state
                                           (or (:id user) (:_id user) (:email user))]))}
-              "Hapus"]]])
+              "🗑️ Hapus"]]])
 
-         ;; Divider
-         [:hr {:style {:margin "2em 0"}}]
+         [:hr {:style {:margin "2.5em 0"}}]
 
-         ;; List latihan gabungan user
-         [:h3 "Latihan Gabungan lo"]
+         ;; --- List Custom Prosets ---
+         [:h3 {:style {:margin-bottom "0.5em"}} "🧠 Latihan Gabungan Lo"]
          [:div {:style {:margin-bottom "1em"}}
           [:button.btn.btn-outline-primary
            {:on-click #(rf/dispatch
@@ -425,8 +695,10 @@
                          (or (:id user) (:_id user) (:email user))])}
            (if loading? "Loading..." "🔄 Refresh List")]]
 
+
          (cond
-           loading? [:p "Sedang memuat..."]
+           loading?
+           [:p "Sedang memuat..."]
 
            (seq custom-list)
            [:div.custom-list
@@ -434,34 +706,42 @@
              (for [c (reverse custom-list)]
                ^{:key (:_id c)}
                [:div.custom-item
-                {:style {:border "1px solid #ddd"
-                         :padding "0.75em"
-                         :margin-bottom "0.5em"
-                         :border-radius "6px"}}
-                [:div {:style {:display "flex"
-                               :justify-content "space-between"
-                               :align-items "center"}}
-                 [:div
-                  [:strong (or (:topic c) "Untitled")]
-                  [:div {:style {:font-size "0.85em" :color "#666"}}
-                   (str "Soal: " (count (:problems c)))]]
-                 [:div
-                  [:button.btn.btn-sm.btn-secondary
-                   {:on-click #(do
-                                 (rf/dispatch [:fetch-custom-proset-by-id (:_id c)])
-                                 (set! (.-hash js/location)
-                                       (str "#practice-custom/" (:_id c))))}
-                   "Mulai"]
-                  [:button.btn.btn-sm.btn-danger
-                   {:style {:margin-left "0.5em"}
-                    :on-click #(when (js/confirm "Yakin mau hapus latihan ini?")
-                                 (rf/dispatch [:delete-custom-proset
-                                               (:_id c)
-                                               (or (:id user) (:_id user) (:email user))]))}
-                   "Hapus"]]]]))]
+                {:style {:border "1px solid #e0e0e0"
+                         :padding "1em"
+                         :margin-bottom "0.8em"
+                         :border-radius "10px"
+                         :background "#fff"
+                         :box-shadow "0 1px 4px rgba(0,0,0,0.1)"
+                         :transition "all 0.2s ease"}}
+                [:div
+                 [:strong {:style {:font-size "1.05em" :color "#333"}}
+                  (or (:topic c) "Untitled")]
+                 [:div {:style {:font-size "0.85em"
+                                :color "#666"
+                                :margin-top "0.3em"}}
+                  (str "Jumlah Soal: " (count (:problems c)))]]
+                [:div {:style {:margin-top "0.75em"
+                               :display "flex"
+                               :gap "0.6em"}}
+                 [:button.btn.btn-sm.btn-success
+                  {:style {:flex "1"}
+                   :on-click #(do
+                                (rf/dispatch [:fetch-custom-proset-by-id (:_id c)])
+                                (set! (.-hash js/location)
+                                      (str "#practice-custom/" (:_id c))))}
+                  "🚀 Mulai"]
+                 [:button.btn.btn-sm.btn-danger
+                  {:style {:flex "0.7"}
+                   :on-click #(when (js/confirm "Lo yakin mau hapus latihan ini?")
+                                (rf/dispatch [:delete-custom-proset
+                                              (:_id c)
+                                              (or (:id user) (:_id user) (:email user))]))}
+                  "🗑️ Hapus"]]]))]
 
            :else
-           [:p "Belum ada latihan gabungan yang lo buat."])]))))
+           [:p {:style {:color "#777" :font-style "italic"}}
+            "Belum ada latihan gabungan yang lo buat."])]))))
+
 
 (defn custom-proset-test-page []
   (let [p @(rf/subscribe [:custom-current-proset])
@@ -499,75 +779,158 @@
 
 
 (defn practice-page [material-id]
-  (let [difficulty (r/atom "easy")]
-    (fn []
+  (fn []
+    (let [m @(rf/subscribe [:current-material])]
       [:div.container
-       [:h2.page-title "Practice Menu"]
+       [:h2.page-title "🎯 Practice Center"]
        (if (some? material-id)
-         [:div  
-          [:div.btn-group
-           [:button.btn.btn-primary
-            {:on-click #(rf/dispatch [:generate-prosets material-id @difficulty])}
-            "Generate Practice"]
-           [:button.btn.btn-secondary
-            {:on-click #(do
-                          (rf/dispatch [:open-bank-soal material-id])
-                          (set! (.-hash js/location) "#bank-soal"))}
-            "Bank Soal"]
-           [:button.btn.btn-accent
-            {:on-click #(do
-                          (rf/dispatch [:fetch-all-questions material-id])
-                          (set! (.-hash js/location) (str "#practice-all/" material-id)))}
-            "Tes Semua Soal Materi Ini"]]
-          [:p.small "Pilih Difficulty:"]
-           [:select
-           {:value @difficulty
-            :on-change #(reset! difficulty (.. % -target -value))}
-           [:option {:value "easy"} "Easy"]
-           [:option {:value "medium"} "Medium"]
-           [:option {:value "hard"} "Hard"]]]
+         [:div
+          ;; Box 1 — Info Materi
+          [:div.panel
+           {:style {:padding "1.5em"
+                    :border "1px solid #ddd"
+                    :border-radius "10px"
+                    :background "#fafafa"
+                    :margin-bottom "1.5em"
+                    :box-shadow "0 1px 3px rgba(0,0,0,0.08)"}}
+           [:h3 {:style {:margin-bottom "0.5em"}}
+            (or (:topic m) "Untitled Topic")]
+           [:p {:style {:color "#555" :font-size "0.9em"}}
+            "Latihan ini bakal bantu lo ningkatin skill di topik ini. "
+            "Lo bisa pilih latihan yang udah ada, generate soal baru, "
+            "atau langsung tes semua soal dari topik ini."]]
+
+          ;; Box 2 — Aksi utama
+          [:div.panel
+           {:style {:padding "1.5em"
+                    :border "1px solid #ddd"
+                    :border-radius "10px"
+                    :background "#fff"}}
+           [:h3 {:style {:margin-bottom "1em"}} "⚙️ Pilih Aksi Lo"]
+           [:div.btn-group {:style {:display "flex" :flex-direction "column" :gap "0.75em"}}
+            [:button.btn.btn-primary
+             {:on-click #(do
+                           (rf/dispatch [:open-bank-soal material-id])
+                           (set! (.-hash js/location) "#bank-soal"))}
+             "📚 Lihat & Kelola Bank Soal"]
+            [:button.btn.btn-accent
+             {:on-click #(do
+                           (rf/dispatch [:fetch-all-questions material-id])
+                           (set! (.-hash js/location)
+                                 (str "#practice-all/" material-id)))}
+             "🧠 Tes Semua Soal di Materi Ini"]]]
+
+          ;; Box 3 — Motivasi kecil (biar gak kering banget)
+          [:div {:style {:margin-top "2em"
+                         :text-align "center"
+                         :color "#666"
+                         :font-style "italic"}}
+           [:p "“Semakin sering lo latihan, makin tajem otak lo.” 💪"]]]
+
          [:div.panel
-          [:p.small "Material-id lom ada."]
+          [:p.small "Material-id belum ada."]
           [:button.btn.btn-primary
            {:on-click #(rf/dispatch [:fetch-materials])}
            "Refresh daftar materi"]])])))
 
-(defn bank-soal-page []
-  (let [ps @(rf/subscribe [:prosets])]
-    [:div.container
-     [:h2.page-title "Bank Soal"]
-     (if (seq ps)
-       [:ul.material-list
-        (for [p ps]
-          ^{:key (:_id p)}
-          [:li
-           [:div {:style {:display "flex"
-                          :justify-content "space-between"
-                          :align-items "center"}}
-            ;; kiri: info + link
-            [:div
-             [:a {:href (str "#practice-proset/" (:_id p))
-                  :on-click (fn [e]
-                              (.preventDefault e)
-                              (rf/dispatch [:fetch-proset-by-id (:_id p)]))}
-              [:span (or (:bank-code p) (str "Proset " (:_id p)))]
-              " — "
-              [:span.badge (or (:difficulty p) "")]]]
 
-            ;; kanan: tombol hapus
-            [:div
-             [:button.btn.btn-sm.btn-danger
-              {:on-click #(when (js/confirm "Yakin mau hapus bank soal ini?")
-                            (rf/dispatch [:delete-proset (:_id p)]))}
-              "Hapus"]]]])]
-       [:div.panel
-        [:p "Belum ada bank soal untuk materi ini."]
-        [:button.btn.btn-primary
-         {:on-click #(rf/dispatch
-                      [:generate-prosets
-                       (:_id @(rf/subscribe [:current-material]))
-                       "medium"])}
-         "Generate Bank Soal"]])]))
+(defn bank-soal-page []
+  (let [ps @(rf/subscribe [:prosets])
+        difficulty (r/atom "medium")
+        current-material @(rf/subscribe [:current-material])]
+    [:div.container
+     [:h2.page-title {:style {:margin-bottom "0.5em"
+                              :font-weight "700"
+                              :font-size "1.6em"
+                              :color "#222"}}
+      (str "📚 Bank Soal — " (or (:topic current-material) "Untitled"))]
+     ;; 📘 Daftar Bank Soal  
+     [:div.bank-list
+      (doall
+       (for [p ps]
+         ^{:key (:_id p)}
+         [:div.bank-item
+          {:style {:border "1px solid #e0e0e0"
+                   :border-radius "10px"
+                   :padding "1.2em"
+                   :margin-bottom "1em"
+                   :background "#ffffff"
+                   :box-shadow "0 2px 6px rgba(0,0,0,0.05)"
+                   :transition "all 0.2s ease"}}
+          ;; Header info
+          [:div {:style {:display "flex"
+                         :justify-content "space-between"
+                         :align-items "center"
+                         :margin-bottom "0.5em"}}
+           [:div
+            [:h3 {:style {:margin 0
+                          :font-size "1.1em"
+                          :color "#333"}}
+             (or (:bank-code p)
+                 (str "Proset " (:_id p)))]
+            [:p {:style {:margin 0
+                         :font-size "0.9em"
+                         :color "#777"}}
+             (str "Difficulty: " (or (:difficulty p) "N/A"))]]]
+
+          ;; Optional jumlah soal
+          (when-let [probs (:problems p)]
+            [:p {:style {:font-size "0.85em"
+                         :color "#555"
+                         :margin-bottom "0.8em"}}
+             (str "Total Soal: " (count probs))])
+
+          ;; Tombol aksi
+          [:div {:style {:display "flex"
+                         :gap "0.6em"
+                         :margin-top "0.5em"}}
+           [:button.btn.btn-sm.btn-primary
+            {:style {:flex "1"
+                     :font-weight "600"}
+             :on-click #(do
+                          (rf/dispatch [:fetch-proset-by-id (:_id p)])
+                          (set! (.-hash js/location)
+                                (str "#practice-proset/" (:_id p))))}
+            "💪 Mulai Latihan"]
+           [:button.btn.btn-sm.btn-danger
+            {:style {:flex "0.6"}
+             :on-click #(when (js/confirm "Yakin mau hapus bank soal ini?")
+                          (rf/dispatch [:delete-proset (:_id p)]))}
+            "🗑️ Hapus"]]]))]
+
+     ;; 💡 Generate Practice Box 
+     [:div.panel
+      {:style {:padding "1em 1.2em"
+               :margin-bottom "1.5em"
+               :background "#f9f9f9"
+               :border "1px solid #ddd"
+               :border-radius "8px"
+               :box-shadow "0 1px 3px rgba(0,0,0,0.08)"}}
+      [:h3 {:style {:margin-bottom "0.5em"
+                    :font-size "1.1em"
+                    :color "#333"}}
+       "⚙️ Generate Practice Baru"]
+      [:p.small {:style {:margin-bottom "0.8em" :color "#555"}}
+       "Pilih tingkat kesulitan dan generate soal baru buat materi ini."]
+
+      [:div {:style {:display "flex"
+                     :align-items "center"
+                     :gap "0.75em"}}
+       [:select.form-control
+        {:value @difficulty
+         :style {:flex "1" :max-width "200px"}
+         :on-change #(reset! difficulty (.. % -target -value))}
+        [:option {:value "easy"} "Easy"]
+        [:option {:value "medium"} "Medium"]
+        [:option {:value "hard"} "Hard"]]
+       [:button.btn.btn-primary
+        {:style {:padding "0.5em 1em"}
+         :on-click #(rf/dispatch
+                     [:generate-prosets
+                      (:_id current-material)
+                      @difficulty])}
+        "🚀 Generate Practice"]]]]))
+
 
 (defn practice-proset-page []
   (let [p @(rf/subscribe [:current-proset])
