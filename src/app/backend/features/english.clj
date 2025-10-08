@@ -279,28 +279,35 @@ Rules:
     (shuffle problems))))
 
 (defn generate-proset! [db openai-comp material-id difficulty]
-  (let [material (mc/find-one-as-map db "materials" {:_id material-id})
-        topic (:topic material)
-        chosen-diff (or difficulty (:difficulty material) "medium")
-        existing-count (mc/count db "prosets" {:material-id material-id})
-        messages (english-prosets-generator topic chosen-diff)
-        gen-fn (:openai openai-comp)
-        resp (gen-fn {:model "gpt-5-mini"
-                      :messages messages
-                      :temperature 1
-                      :json-schema proset-schema})
-        content (u/parse-json (:result resp))
-        problems (:problems content)
-        proset {:_id         (u/uuid)
-                :material-id material-id
-                :topic       topic
-                :difficulty  chosen-diff
-                :bank-code   (str "bank-soal-" (inc existing-count) "-" topic)
-                :problems    problems
-                :created-at  (u/now)}]
-    (mc/insert-and-return db "prosets" proset)
-    (u/info proset)
-    proset))
+  (try
+    (let [material (mc/find-one-as-map db "materials" {:_id material-id})
+          topic (:topic material)
+          chosen-diff (or difficulty (:difficulty material) "medium")
+          existing-count (mc/count db "prosets" {:material-id material-id})
+          messages (english-prosets-generator topic chosen-diff)
+          gen-fn (:openai openai-comp)
+          resp (gen-fn {:model "gpt-5-mini"
+                        :messages messages
+                        :temperature 1
+                        :json-schema proset-schema})
+          content (u/parse-json (:result resp))
+          problems (:problems content)]
+      (if (and (vector? problems) (seq problems))
+        (let [proset {:_id (u/uuid)
+                      :material-id material-id
+                      :topic topic
+                      :difficulty chosen-diff
+                      :bank-code (str "bank-soal-" (inc existing-count) "-" topic)
+                      :problems problems
+                      :created-at (u/now)}]
+          (mc/insert-and-return db "prosets" proset)
+          (u/info proset)
+          proset)
+        {:status "error" :message "Gagal generate proset: Koneksi server atau di lo nya lagi error nih"}))
+
+    (catch Exception e
+      (u/error "Error di generate-proset!" (.getMessage e))
+      {:status "error" :message "Koneksi error waktu generate proset"})))
 
 (defn get-problems-by-material-id
   "Ngambil semua problem dari semua prosets yang punya material-id tertentu.
@@ -352,23 +359,30 @@ Rules:
 ;; MATERIALS
 ;; ------------------------
 (defn generate-material! [db openai-comp user-id raw-input]
-  (let [extracted (extract-topic! openai-comp raw-input)
-        topic (:topic extracted)
-        gen-fn   (:openai openai-comp)
-        messages (english-generator-messages topic "material")
-        resp     (gen-fn {:model "gpt-5-mini"
-                          :messages messages
-                          :temperature 1
-                          :json-schema material-schema})
-        content  (u/parse-json (:result resp))
-        doc       {:_id (u/uuid)
+  (try
+    (let [extracted (extract-topic! openai-comp raw-input)
+          topic (:topic extracted)
+          gen-fn (:openai openai-comp)
+          messages (english-generator-messages topic "material")
+          resp (gen-fn {:model "gpt-5-mini"
+                        :messages messages
+                        :temperature 1
+                        :json-schema material-schema})
+          content (u/parse-json (:result resp))]
+      (if (and topic (map? content) (seq content))
+        (let [doc {:_id (u/uuid)
                    :user-id user-id
                    :topic topic
-                   :content content} 
-        inserted (mc/insert-and-return db "materials" doc)]
-    (generate-proset! db openai-comp (:_id inserted) "easy")
-    (u/info doc)
-    inserted))
+                   :content content}
+              inserted (mc/insert-and-return db "materials" doc)]
+          (generate-proset! db openai-comp (:_id inserted) "easy")
+          (u/info doc)
+          inserted)
+        {:status "error" :message "Gagal generate material: Koneksi server atau di lo nya lagi error nih"}))
+
+    (catch Exception e
+      (u/error "Error di generate-material!" (.getMessage e))
+      {:status "error" :message "Koneksi error waktu generate material"})))
 
 (defn fetch-materials [db user-id]
   (mc/find-maps db "materials" {:user-id user-id}))
@@ -388,30 +402,39 @@ Rules:
         (> (- now (:submitted-at a)) lockout-ms))))
 
 (defn generate-assessment! [db openai-comp user-id]
-  (let [a (mc/find-one-as-map db "assessments" {:user-id user-id})]
-    (if (can-generate-assessment? a)
-      (do
-        (mc/remove db "assessments" {:user-id user-id})
-        (let [gen-fn   (:openai openai-comp)
-              messages (english-generator-messages
-                        "grammar, vocabulary, reading"
-                        "assessment")
-              resp     (gen-fn {:model "gpt-5-mini"
-                                :messages messages
-                                :temperature 1
-                                :json-schema assessment-schema})
-              content  (u/parse-json (:result resp))
-              doc {:_id (u/uuid)
-                   :user-id user-id
-                   :questions (:questions content)
-                   :topics-covered ["grammar" "vocabulary" "reading"]
-                   :weak-topics []
-                   :created-at (u/now)
-                   :submitted? false}]
-          (mc/insert-and-return db "assessments" doc)
-          (u/info doc)
-          doc))
-      (assoc a :lockout true))))
+  (try
+    (let [a (mc/find-one-as-map db "assessments" {:user-id user-id})]
+      (if (can-generate-assessment? a)
+        (do
+          (mc/remove db "assessments" {:user-id user-id})
+          (let [gen-fn (:openai openai-comp)
+                messages (english-generator-messages
+                          "grammar, vocabulary, reading"
+                          "assessment")
+                resp (gen-fn {:model "gpt-5-mini"
+                              :messages messages
+                              :temperature 1
+                              :json-schema assessment-schema})
+                content (u/parse-json (:result resp))
+                questions (:questions content)]
+
+            (if (and (vector? questions) (seq questions))
+              (let [doc {:_id (u/uuid)
+                         :user-id user-id
+                         :questions questions
+                         :topics-covered ["grammar" "vocabulary" "reading"]
+                         :weak-topics []
+                         :created-at (u/now)
+                         :submitted? false}]
+                (mc/insert-and-return db "assessments" doc)
+                (u/info doc)
+                doc)
+              {:status "error" :message "Gagal generate assessment: Koneksi server atau di lo nya lagi error nih"})))
+        (assoc a :lockout true)))
+
+    (catch Exception e
+      (u/error "Error di generate-assessment!" (.getMessage e))
+      {:status "error" :message "Koneksi error waktu generate assessment"})))
 
 (defn submit-assessment! [db _ assessment-id answers]
   (let [assessment (mc/find-one-as-map db "assessments" {:_id assessment-id})
