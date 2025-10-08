@@ -38,12 +38,16 @@
     ["/materials"
      ["/generate"
       {:post (fn [req]
-               (let [{:keys [user-id topic]} (:body req)]
-                 (if (empty? topic)
-                   {:status 400
-                    :body {:status "error" :message "Isi dulu topicnya boss"}}
-                   {:status 200
-                    :body (english/generate-material! (:db db) openai user-id topic)})))}]
+               (let [{:keys [user-id topic]} (:body req)
+                     res (if (empty? topic)
+                           {:status 400
+                            :body {:status "error" :message "Isi dulu topicnya boss"}}
+                           {:status 200
+                            :body (english/generate-material! (:db db) openai user-id topic)})]
+                 (if (= "error" (get-in res [:body :status]))
+                   {:status 500
+                    :body (get-in res [:body])}
+                   res)))}]
      ["/user/:user-id"
       {:get (fn [req]
               (let [uid (get-in req [:path-params :user-id])]
@@ -70,9 +74,11 @@
      ["/material/:material-id/generate"
       {:post (fn [req]
                (let [mid (get-in req [:path-params :material-id])
-                     difficulty (get-in req [:body :difficulty] "medium")]
-                 {:status 200
-                  :body (english/generate-proset! (:db db) openai mid difficulty)}))}]
+                     difficulty (get-in req [:body :difficulty] "easy")
+                     res (english/generate-proset! (:db db) openai mid difficulty)]
+                 (if (= "error" (:status res))
+                   {:status 500 :body res}
+                   {:status 200 :body res})))}]
      ["/material/:material-id/list"
       {:get (fn [req]
               (let [mid (get-in req [:path-params :material-id])
@@ -140,9 +146,9 @@
                (let [uid (get-in req [:body :user-id])
                      material-ids (get-in req [:body :material-ids])
                      title (get-in req [:body :title])]
-                 (if (empty? material-ids)
+                 (if (or (empty? material-ids) (= 1 (count material-ids)))
                    {:status 400
-                    :body {:status "error" :message "Material lo kosong, kocak"}}
+                    :body {:status "error" :message "Minimal pilih 2 materi ngab"}}
                    {:status 200
                     :body (english/generate-custom-proset! (:db db) uid material-ids title)})))}]
      ["/user/:user-id"
@@ -182,9 +188,11 @@
     ["/assessments"
      ["/:user-id/generate"
       {:post (fn [req]
-               (let [uid (get-in req [:path-params :user-id])]
-                 {:status 200
-                  :body (english/generate-assessment! (:db db) openai uid)}))}]
+               (let [uid (get-in req [:path-params :user-id])
+                     res (english/generate-assessment! (:db db) openai uid)]
+                 (if (= "error" (:status res))
+                   {:status 500 :body res}
+                   {:status 200 :body res})))}]
      ["/:user-id"
       {:get (fn [req]
               (let [uid (get-in req [:path-params :user-id])]
